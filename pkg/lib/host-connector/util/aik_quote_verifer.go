@@ -16,14 +16,15 @@ import (
 	"encoding/binary"
 	"encoding/xml"
 	"fmt"
+	"regexp"
+	"strconv"
+	"strings"
+
 	commLog "github.com/intel-secl/intel-secl/v3/pkg/lib/common/log"
 	"github.com/intel-secl/intel-secl/v3/pkg/lib/flavor/constants"
 	"github.com/intel-secl/intel-secl/v3/pkg/lib/host-connector/types"
 	taModel "github.com/intel-secl/intel-secl/v3/pkg/model/ta"
 	"github.com/pkg/errors"
-	"regexp"
-	"strconv"
-	"strings"
 )
 
 var log = commLog.GetDefaultLogger()
@@ -355,6 +356,12 @@ func getPcrEventLog(eventLog string) (types.PcrEventLogMap, error) {
 	defer log.Trace("util/aik_quote_verifier:getPcrEventLog() Leaving")
 	var pcrEventLogMap types.PcrEventLogMap
 	var measureLog types.MeasureLog
+
+	if eventLog == "" {
+		log.Debug("util/aik_quote_verifier:getPcrEventLog() No event log was provided")
+		return pcrEventLogMap, nil
+	}
+
 	err := xml.Unmarshal([]byte(eventLog), &measureLog)
 	if err != nil {
 		return types.PcrEventLogMap{}, errors.Wrap(err, "util/aik_quote_verifier:getPcrEventLog() Error "+

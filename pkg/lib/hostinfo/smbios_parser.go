@@ -1,3 +1,7 @@
+/*
+ * Copyright (C) 2020 Intel Corporation
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 package hostinfo
 
 import (
@@ -47,22 +51,13 @@ var cpuFlags = []string{
 	"PBE", /* 31 */
 }
 
-var (
-	smbiosData = "/sys/firmware/dmi/tables/DMI"
-)
-
 const (
 	sizeOfHeader    = 4   // SMBIOS header is uint8 + uint8 + uint16
 	terminatingType = 127 // SMBIOS terminating header/type value
 )
 
-type SMBIOSReader interface {
-	Read() error
-}
-
-type smbiosReaderImpl struct {
-	hostInfo *model.HostInfo
-	reader   io.ReadSeeker
+type smbiosInfoParser struct {
+	reader io.ReadSeeker
 }
 
 type smbiosTable struct {
@@ -70,29 +65,27 @@ type smbiosTable struct {
 	Strings []string
 }
 
-func newSMBIOSReader(hostInfo *model.HostInfo) (SMBIOSReader, error) {
+func (smbiosInfoParser *smbiosInfoParser) Init() error {
 
-	file, err := os.Open(smbiosData)
+	file, err := os.Open(smbiosFile)
 	if err != nil {
-		return nil, fmt.Errorf("Could not open SMBIOS file %s: %v", smbiosData, err)
+		fmt.Errorf("Could not open SMBIOS file '%s': %w", smbiosFile, err)
 	}
 
-	return &smbiosReaderImpl{
-		hostInfo: hostInfo,
-		reader:   file,
-	}, nil
+	smbiosInfoParser.reader = file
+	return nil
 }
 
-func (impl *smbiosReaderImpl) Read() error {
+func (smbiosInfoParser *smbiosInfoParser) Parse(hostInfo *model.HostInfo) error {
 
 	for {
-		table, err := impl.parseNextTable()
+		table, err := smbiosInfoParser.parseNextTable()
 		if err != nil {
 			return err
 		}
 
 		if readerFunc, ok := readers[table.Type()]; ok {
-			err = readerFunc(table, impl.hostInfo)
+			err = readerFunc(table, hostInfo)
 			if err != nil {
 				return err
 			}
@@ -106,12 +99,12 @@ func (impl *smbiosReaderImpl) Read() error {
 	return nil
 }
 
-func (impl *smbiosReaderImpl) parseNextTable() (*smbiosTable, error) {
+func (smbiosInfoParser *smbiosInfoParser) parseNextTable() (*smbiosTable, error) {
 
 	table := smbiosTable{}
 
 	// get the current position in the table for error messages/debugging
-	off, err := impl.reader.Seek(0, io.SeekCurrent)
+	off, err := smbiosInfoParser.reader.Seek(0, io.SeekCurrent)
 	if err != nil {
 		return nil, err
 	}
@@ -123,12 +116,12 @@ func (impl *smbiosReaderImpl) parseNextTable() (*smbiosTable, error) {
 	// aligns with the tables in the spec -- not getDWORD(3) due to the missing
 	// entries).
 	header := make([]byte, 4)
-	impl.reader.Read(header)
+	smbiosInfoParser.reader.Read(header)
 	length := header[1]
 
 	writer := &bytes.Buffer{}
 	writer.Write(header)
-	_, err = io.CopyN(writer, impl.reader, int64(length-4))
+	_, err = io.CopyN(writer, smbiosInfoParser.reader, int64(length-4))
 	if err != nil {
 		return nil, fmt.Errorf("Failed to copy Data with length 0x%x from SMBIOS table at 0x%x: %w", length-4, off, err)
 	}
@@ -143,7 +136,7 @@ func (impl *smbiosReaderImpl) parseNextTable() (*smbiosTable, error) {
 	var char byte
 
 	// read the first byte of the string section (so we can check for empty)
-	err = binary.Read(impl.reader, binary.LittleEndian, &char)
+	err = binary.Read(smbiosInfoParser.reader, binary.LittleEndian, &char)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to read leading byte of strings section from SMBIOS table at 0x%x: %w", off, err)
 	}
@@ -153,7 +146,7 @@ func (impl *smbiosReaderImpl) parseNextTable() (*smbiosTable, error) {
 		if char == 0 {
 			// Encountered a terminator.  Look for the second terminator that ends the
 			// strings section.
-			err = binary.Read(impl.reader, binary.LittleEndian, &char)
+			err = binary.Read(smbiosInfoParser.reader, binary.LittleEndian, &char)
 			if err != nil {
 				return nil, fmt.Errorf("Failed to read the second terminating byte of strings section from SMBIOS table at 0x%x: %w", off, err)
 			}
@@ -168,7 +161,7 @@ func (impl *smbiosReaderImpl) parseNextTable() (*smbiosTable, error) {
 
 		// continue to read bytes until terminated
 		for {
-			err = binary.Read(impl.reader, binary.LittleEndian, &char)
+			err = binary.Read(smbiosInfoParser.reader, binary.LittleEndian, &char)
 			if err != nil {
 				return nil, fmt.Errorf("Failed to string byte from SMBIOS table at 0x%x: %w", off, err)
 			}

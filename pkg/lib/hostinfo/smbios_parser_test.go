@@ -1,3 +1,7 @@
+/*
+ * Copyright (C) 2020 Intel Corporation
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 package hostinfo
 
 import (
@@ -12,12 +16,10 @@ func testSMBIOS(t *testing.T, expectedResults *model.HostInfo) {
 
 	hostInfo := model.HostInfo{}
 
-	smbiosReader, err := newSMBIOSReader(&hostInfo)
-	if err != nil {
-		t.Errorf("Could not create SMBIOS reader: %v", err)
-	}
+	smbiosInfoParser := smbiosInfoParser{}
+	smbiosInfoParser.Init()
 
-	err = smbiosReader.Read()
+	err := smbiosInfoParser.Parse(&hostInfo)
 	if err != nil {
 		t.Errorf("Failed to parse SMBIOS: %v", err)
 	}
@@ -41,19 +43,11 @@ func testSMBIOS(t *testing.T, expectedResults *model.HostInfo) {
 	if hostInfo.ProcessorFlags != expectedResults.ProcessorFlags {
 		t.Errorf("Expected ProcessFlags '%s' but found '%s'", expectedResults.ProcessorFlags, hostInfo.ProcessorFlags)
 	}
-
-	// jsonData, err := json.MarshalIndent(hostInfo, "", "  ")
-	// if err != nil {
-	// 	t.Error(err)
-	// }
-
-	// t.Log(string(jsonData))
-
 }
 
 func TestWhitley(t *testing.T) {
 
-	smbiosData = "test_data/whitley/DMI"
+	smbiosFile = "test_data/whitley/DMI"
 
 	expectedResults := model.HostInfo{
 		BiosName:       "Intel Corporation",
@@ -68,7 +62,7 @@ func TestWhitley(t *testing.T) {
 
 func TestPurley(t *testing.T) {
 
-	smbiosData = "test_data/purley/DMI"
+	smbiosFile = "test_data/purley/DMI"
 
 	expectedResults := model.HostInfo{
 		BiosName:       "Intel Corporation",

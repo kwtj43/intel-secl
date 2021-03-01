@@ -18,28 +18,42 @@ import (
 // from /etc/os-release file (formatted as described in
 // https://www.freedesktop.org/software/systemd/man/os-release.html).
 type osInfoParser struct {
-	lineReader *bufio.Reader
 }
 
 func (osInfoParser *osInfoParser) Init() error {
+	if _, err := os.Stat(osReleaseFile); os.IsNotExist(err) {
+		return fmt.Errorf("Could not find os-release file '%s'", osReleaseFile)
+	}
+
+	return nil
+}
+
+func (osInfoParser *osInfoParser) Parse(hostInfo *model.HostInfo) error {
+	var err error
+
 	file, err := os.Open(osReleaseFile)
 	if err != nil {
 		return fmt.Errorf("Failed to open os-release file '%s'", osReleaseFile)
 	}
 
-	osInfoParser.lineReader = bufio.NewReader(file)
-	return nil
-}
+	defer func() {
+		err = file.Close()
+		if err != nil {
+			// TODO:  log.Errorf
+			fmt.Errorf("Failed close os-release file '%s': %s", osReleaseFile, err.Error())
+		}
+	}()
 
-func (osInfoParser *osInfoParser) Parse(hostInfo *model.HostInfo) error {
+	lineReader := bufio.NewReader(file)
+
 	for {
-		line, err := osInfoParser.lineReader.ReadString('\n')
+		line, err := lineReader.ReadString('\n')
 		if err != nil {
 			if err == io.EOF {
 				break
 			}
 
-			return fmt.Errorf("Error parsing os information: %w", err)
+			return fmt.Errorf("Error parsing os information from file '%s': %w", osReleaseFile, err)
 		}
 
 		line = strings.TrimSpace(line)
@@ -49,7 +63,7 @@ func (osInfoParser *osInfoParser) Parse(hostInfo *model.HostInfo) error {
 
 		split := strings.Split(line, "=")
 		if len(split) != 2 {
-			return fmt.Errorf("'%s' is not a valid os-release line", line)
+			return fmt.Errorf("'%s' is not a valid line in file '%s'", line, osReleaseFile)
 		}
 
 		if split[0] == "NAME" {

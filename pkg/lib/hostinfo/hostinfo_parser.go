@@ -16,6 +16,7 @@ var (
 	infoParsers = []InfoParser{
 		&smbiosInfoParser{},
 		&osInfoParser{},
+		&msrInfoParser{}, // order matters here -- txt info needs on processor flags from smbios
 	}
 )
 

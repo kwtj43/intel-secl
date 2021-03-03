@@ -259,13 +259,13 @@ var readers = map[uint8]func(*smbiosTable, *model.HostInfo) error{
 		hostInfo.HardwareUUID += "-"
 		hostInfo.HardwareUUID += hex.EncodeToString(uuid[10:16])
 
-		// "Serial Number" at 7h
-		serialNumber, err := table.getString(7)
-		if err != nil {
-			return fmt.Errorf("Could not read Serial Number: %w", err)
-		}
+		// // TODO:  Add "Serial Number" at 7h
+		// serialNumber, err := table.getString(7)
+		// if err != nil {
+		// 	return fmt.Errorf("Could not read Serial Number: %w", err)
+		// }
 
-		fmt.Println(serialNumber) // TODO AMI changes
+		// fmt.Println(serialNumber)
 
 		return nil
 	},

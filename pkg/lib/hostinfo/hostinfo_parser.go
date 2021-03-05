@@ -7,6 +7,7 @@ package hostinfo
 import (
 	"fmt"
 
+	commonLog "github.com/intel-secl/intel-secl/v3/pkg/lib/common/log"
 	model "github.com/intel-secl/intel-secl/v3/pkg/model/ta"
 )
 
@@ -17,7 +18,10 @@ var (
 		&smbiosInfoParser{},
 		&osInfoParser{},
 		&msrInfoParser{}, // order matters here -- txt info needs on processor flags from smbios
+		&tpmInfoParser{},
 	}
+
+	log = commonLog.GetDefaultLogger()
 )
 
 // HostInfoParser collects the host's meta-data from the current

@@ -45,7 +45,7 @@ func testSMBIOS(t *testing.T, expectedResults *model.HostInfo) {
 	}
 }
 
-func TestWhitley(t *testing.T) {
+func TestSmbiosWhitley(t *testing.T) {
 
 	smbiosFile = "test_data/whitley/DMI"
 
@@ -60,7 +60,7 @@ func TestWhitley(t *testing.T) {
 	testSMBIOS(t, &expectedResults)
 }
 
-func TestPurley(t *testing.T) {
+func TestSmbiosPurley(t *testing.T) {
 
 	smbiosFile = "test_data/purley/DMI"
 

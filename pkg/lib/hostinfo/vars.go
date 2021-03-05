@@ -10,4 +10,5 @@ var (
 	smbiosFile    = "/sys/firmware/dmi/tables/DMI"
 	osReleaseFile = "/etc/os-release"
 	msrFile       = "/dev/cpu/0/msr"
+	tpm2AcpiFile  = "/sys/firmware/acpi/tables/TPM2"
 )

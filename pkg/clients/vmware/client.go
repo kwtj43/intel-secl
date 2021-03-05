@@ -90,7 +90,7 @@ func (vc *vmwareClient) GetHostInfo() (taModel.HostInfo, error) {
 	hostInfo.VMMVersion = vc.hostReference.Config.Product.Build
 	hostInfo.BiosName = vc.hostReference.Hardware.SystemInfo.Vendor
 	hostInfo.BiosVersion = vc.hostReference.Hardware.BiosInfo.BiosVersion
-	hostInfo.NumberOfSockets = int(vc.hostReference.Hardware.CpuInfo.NumCpuPackages)
+	// KWT hostInfo.NumberOfSockets = int(vc.hostReference.Hardware.CpuInfo.NumCpuPackages)
 	hostInfo.ProcessorInfo = vc.hostReference.Summary.MaxEVCModeKey
 	hostInfo.HardwareUUID = strings.ToUpper(vc.hostReference.Hardware.SystemInfo.Uuid)
 	hostInfo.HardwareFeatures.TPM = taModel.TPM{}

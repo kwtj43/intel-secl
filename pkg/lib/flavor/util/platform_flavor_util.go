@@ -224,7 +224,7 @@ func (pfutil PlatformFlavorUtil) GetHardwareSectionDetails(hostInfo *taModel.Hos
 		// set CBNT
 		cbnt.Enabled = hostInfo.HardwareFeatures.CBNT.Enabled
 		cbnt.Meta.Profile = hostInfo.HardwareFeatures.CBNT.Meta.Profile
-		cbnt.Meta.MSR = hostInfo.HardwareFeatures.CBNT.Meta.MSR
+		// KWT cbnt.Meta.MSR = hostInfo.HardwareFeatures.CBNT.Meta.MSR
 		feature.CBNT = cbnt
 
 		uefi := fm.UEFI{}

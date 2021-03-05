@@ -98,7 +98,7 @@ func (msrInfoParser *msrInfoParser) parseCbnt(hostInfo *model.HostInfo) error {
 			return fmt.Errorf("Failed to extract CBNT profile flags: %w", err)
 		}
 
-		hostInfo.HardwareFeatures.CBNT.Meta.MSR = "mk ris kfm" // TODO: Should these be added to ProcessorFlags?  What code uses these?
+		//hostInfo.HardwareFeatures.CBNT.Meta.MSR = "mk ris kfm" // TODO: Should these be added to ProcessorFlags?  What code uses these?
 
 		var profileString string
 		if profileBits == cbntProfile3Flags {
@@ -137,7 +137,7 @@ func (msrReaderImpl *msrReaderImpl) ReadAt(offset int64) (uint64, error) {
 	defer func() {
 		err = msr.Close()
 		if err != nil {
-			fmt.Printf("Failed to close MSR file '%s': %s", msrFile, err.Error())
+			log.Errorf("Failed to close MSR file '%s': %s", msrFile, err.Error())
 		}
 	}()
 

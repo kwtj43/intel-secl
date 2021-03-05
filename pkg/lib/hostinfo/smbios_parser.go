@@ -85,8 +85,7 @@ func (smbiosInfoParser *smbiosInfoParser) Parse(hostInfo *model.HostInfo) error 
 	defer func() {
 		err = file.Close()
 		if err != nil {
-			// TODO: log.Errorf
-			fmt.Println("Failed close SMBIOS file:", err.Error())
+			log.Errorf("Failed close SMBIOS file: %s", err.Error())
 		}
 	}()
 

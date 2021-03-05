@@ -12,7 +12,7 @@ type CBNT struct {
 	HardwareFeature
 	Meta struct {
 		Profile string `json:"profile"`
-		MSR     string `json:"msr"`
+		//		MSR     string `json:"msr"`
 	} `json:"meta"`
 }
 
@@ -32,17 +32,17 @@ type UEFI struct {
 }
 
 type HostInfo struct {
-	OSName              string           `json:"os_name"`
-	OSVersion           string           `json:"os_version"`
-	BiosVersion         string           `json:"bios_version"`
-	VMMName             string           `json:"vmm_name"`
-	VMMVersion          string           `json:"vmm_version"`
-	ProcessorInfo       string           `json:"processor_info"`
-	HostName            string           `json:"host_name"`
-	BiosName            string           `json:"bios_name"`
-	HardwareUUID        string           `json:"hardware_uuid"`
-	ProcessorFlags      string           `json:"process_flags"`
-	NumberOfSockets     int              `json:"no_of_sockets,string"`
+	OSName         string `json:"os_name"`
+	OSVersion      string `json:"os_version"`
+	BiosVersion    string `json:"bios_version"`
+	VMMName        string `json:"vmm_name"`
+	VMMVersion     string `json:"vmm_version"`
+	ProcessorInfo  string `json:"processor_info"`
+	HostName       string `json:"host_name"`
+	BiosName       string `json:"bios_name"`
+	HardwareUUID   string `json:"hardware_uuid"`
+	ProcessorFlags string `json:"process_flags"`
+	//NumberOfSockets     int              `json:"no_of_sockets,string"`
 	TbootInstalled      bool             `json:"tboot_installed,string"`
 	IsDockerEnvironment bool             `json:"is_docker_env,string"`
 	HardwareFeatures    HardwareFeatures `json:"hardware_features"`

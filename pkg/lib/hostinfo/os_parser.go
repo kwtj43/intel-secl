@@ -17,8 +17,7 @@ import (
 // osInfoParser collects the HostInfo's OSName and OSVersion fields
 // from /etc/os-release file (formatted as described in
 // https://www.freedesktop.org/software/systemd/man/os-release.html).
-type osInfoParser struct {
-}
+type osInfoParser struct{}
 
 func (osInfoParser *osInfoParser) Init() error {
 	if _, err := os.Stat(osReleaseFile); os.IsNotExist(err) {
@@ -39,8 +38,7 @@ func (osInfoParser *osInfoParser) Parse(hostInfo *model.HostInfo) error {
 	defer func() {
 		err = file.Close()
 		if err != nil {
-			// TODO:  log.Errorf
-			fmt.Errorf("Failed close os-release file '%s': %s", osReleaseFile, err.Error())
+			log.Errorf("Failed close os-release file '%s': %s", osReleaseFile, err.Error())
 		}
 	}()
 

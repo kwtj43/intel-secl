@@ -24,7 +24,7 @@ func testTpm2Info(t *testing.T, expectedResults *model.HostInfo) {
 	}
 
 	if !reflect.DeepEqual(&hostInfo, expectedResults) {
-		t.Errorf("The parsed TPM does not match the expected results.\nExpected: %+v\nActual: %+v\n", expectedResults, hostInfo)
+		t.Errorf("The parsed TPM ACPI data does not match the expected results.\nExpected: %+v\nActual: %+v\n", expectedResults, hostInfo)
 	}
 }
 

@@ -5,6 +5,7 @@
 package hostinfo
 
 import (
+	"reflect"
 	"testing"
 
 	model "github.com/intel-secl/intel-secl/v3/pkg/model/ta"
@@ -23,16 +24,8 @@ func testMsrInfoParser(t *testing.T, mockMsrReader msrReader, expectedResults *m
 		t.Errorf("Failed to parse TXT: %v", err)
 	}
 
-	if hostInfo.HardwareFeatures.TXT.Enabled != expectedResults.HardwareFeatures.TXT.Enabled {
-		t.Errorf("Expected TXT enabled value '%t' but got '%t'", expectedResults.HardwareFeatures.TXT.Enabled, hostInfo.HardwareFeatures.TXT.Enabled)
-	}
-
-	if hostInfo.HardwareFeatures.CBNT.Enabled != expectedResults.HardwareFeatures.CBNT.Enabled {
-		t.Errorf("Expected CBNT enabled value '%t' but got '%t'", expectedResults.HardwareFeatures.CBNT.Enabled, hostInfo.HardwareFeatures.CBNT.Enabled)
-	}
-
-	if hostInfo.HardwareFeatures.CBNT.Meta.Profile != expectedResults.HardwareFeatures.CBNT.Meta.Profile {
-		t.Errorf("Expected CBNT profile value '%s' but got '%s'", expectedResults.HardwareFeatures.CBNT.Meta.Profile, hostInfo.HardwareFeatures.CBNT.Meta.Profile)
+	if !reflect.DeepEqual(&hostInfo, expectedResults) {
+		t.Errorf("The parsed MRS data does not match the expected results.\nExpected: %+v\nActual: %+v\n", expectedResults, hostInfo)
 	}
 }
 

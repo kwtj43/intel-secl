@@ -5,13 +5,6 @@
 package hostinfo
 
 import (
-	//  "bytes"
-	//  "encoding/binary"
-	//  "encoding/hex"
-	//  "fmt"
-	//  "io"
-	//  "strings"
-
 	"fmt"
 	"os"
 

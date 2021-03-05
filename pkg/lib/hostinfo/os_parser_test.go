@@ -5,12 +5,13 @@
 package hostinfo
 
 import (
+	"reflect"
 	"testing"
 
 	model "github.com/intel-secl/intel-secl/v3/pkg/model/ta"
 )
 
-func testOsInfoParser(t *testing.T) {
+func testOsInfoParser(t *testing.T, expectedResults *model.HostInfo) {
 	hostInfo := model.HostInfo{}
 	osInfoParser := osInfoParser{}
 	osInfoParser.Init()
@@ -20,21 +21,27 @@ func testOsInfoParser(t *testing.T) {
 		t.Error(err)
 	}
 
-	if hostInfo.OSName != "Red Hat Enterprise Linux" {
-		t.Errorf("Expected OSName 'Red Hat Enterprise Linux' but got '%s'", hostInfo.OSName)
-	}
-
-	if hostInfo.OSVersion != "8.1" {
-		t.Errorf("Expected OSVersion '8.1' but got '%s'", hostInfo.OSVersion)
+	if !reflect.DeepEqual(&hostInfo, expectedResults) {
+		t.Errorf("The parsed OS data does not match the expected results.\nExpected: %+v\nActual: %+v\n", expectedResults, hostInfo)
 	}
 }
 
 func TestOsInfoPurley(t *testing.T) {
 	osReleaseFile = "test_data/purley/os-release"
-	testOsInfoParser(t)
+
+	expectedResults := model.HostInfo{}
+	expectedResults.OSName = "Red Hat Enterprise Linux"
+	expectedResults.OSVersion = "8.1"
+
+	testOsInfoParser(t, &expectedResults)
 }
 
 func TestOsInfoWhitley(t *testing.T) {
 	osReleaseFile = "test_data/whitley/os-release"
-	testOsInfoParser(t)
+
+	expectedResults := model.HostInfo{}
+	expectedResults.OSName = "Red Hat Enterprise Linux"
+	expectedResults.OSVersion = "8.1"
+
+	testOsInfoParser(t, &expectedResults)
 }

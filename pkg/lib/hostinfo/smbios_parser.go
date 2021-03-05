@@ -54,10 +54,12 @@ var cpuFlags = []string{
 const (
 	sizeOfHeader    = 4   // SMBIOS header is uint8 + uint8 + uint16
 	terminatingType = 127 // SMBIOS terminating header/type value
+	constUefiFlag   = 0x8 // See SMBIOS Spec section 7.1.2.2
 )
 
-type smbiosInfoParser struct {
-}
+// smbiosInfoParser reads data from 'smbiosFile' and uses the data to populate
+// a 'HostInfo' structure (passed in Parse).  See https://www.dmtf.org/sites/default/files/standards/documents/DSP0134_3.4.0.pdf
+type smbiosInfoParser struct{}
 
 type smbiosTable struct {
 	Data    []byte
@@ -210,13 +212,13 @@ var readers = map[uint8]func(*smbiosTable, *model.HostInfo) error{
 		}
 
 		// see SMBIOS 7.1.2
-		biosCharacteristicsExensions, err := table.getBYTE(12)
+		biosCharacteristicsExensions, err := table.getBYTE(13)
 		if err != nil {
 			return fmt.Errorf("Could not read BIOS Characteristics Extensions: %w", err)
 		}
 
-		if biosCharacteristicsExensions&0x4 == 0x4 {
-			fmt.Println("UEFI SUPPORTED") // TODO: ami changes
+		if biosCharacteristicsExensions&constUefiFlag == constUefiFlag {
+			hostInfo.HardwareFeatures.UEFI.Enabled = true
 		}
 
 		return nil

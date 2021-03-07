@@ -5,10 +5,10 @@
 package hostinfo
 
 import (
-	"fmt"
 	"os"
 
 	model "github.com/intel-secl/intel-secl/v3/pkg/model/ta"
+	"github.com/pkg/errors"
 )
 
 // tpmInfoParser uses ACPI data defined in 'tpm2AcpiFile' to determine
@@ -36,7 +36,7 @@ func (tpmInfoParser *tpmInfoParser) Parse(hostInfo *model.HostInfo) error {
 
 	file, err := os.Open(tpm2AcpiFile)
 	if err != nil {
-		return fmt.Errorf("Failed to open TPM ACPI file from '%s': %w", tpm2AcpiFile, err)
+		return errors.Wrapf(err, "Failed to open TPM ACPI file from '%s'", tpm2AcpiFile)
 	}
 
 	defer func() {
@@ -49,7 +49,7 @@ func (tpmInfoParser *tpmInfoParser) Parse(hostInfo *model.HostInfo) error {
 	magic := make([]byte, 4)
 	n, err := file.Read(magic)
 	if err != nil {
-		return fmt.Errorf("Failed to read magic from TPM ACPI file from '%s': %v", tpm2AcpiFile, err)
+		return errors.Wrapf(err, "Failed to read magic from TPM ACPI file from '%s'", tpm2AcpiFile)
 	}
 
 	if n < 4 {
@@ -63,7 +63,6 @@ func (tpmInfoParser *tpmInfoParser) Parse(hostInfo *model.HostInfo) error {
 
 		// TODO -- remove after rebase to v3.4
 		hostInfo.HardwareFeatures.TPM.Meta.PCRBanks = constPcrBanks
-
 	}
 
 	return nil

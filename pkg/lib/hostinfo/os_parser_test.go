@@ -30,7 +30,7 @@ func TestOsInfoPurley(t *testing.T) {
 	osReleaseFile = "test_data/purley/os-release"
 
 	expectedResults := model.HostInfo{}
-	expectedResults.OSName = "Red Hat Enterprise Linux"
+	expectedResults.OSName = "RedHatEnterprise"
 	expectedResults.OSVersion = "8.1"
 
 	testOsInfoParser(t, &expectedResults)
@@ -40,7 +40,7 @@ func TestOsInfoWhitley(t *testing.T) {
 	osReleaseFile = "test_data/whitley/os-release"
 
 	expectedResults := model.HostInfo{}
-	expectedResults.OSName = "Red Hat Enterprise Linux"
+	expectedResults.OSName = "RedHatEnterprise"
 	expectedResults.OSVersion = "8.1"
 
 	testOsInfoParser(t, &expectedResults)

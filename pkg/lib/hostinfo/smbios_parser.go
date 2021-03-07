@@ -8,12 +8,12 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
-	"fmt"
 	"io"
 	"os"
 	"strings"
 
 	model "github.com/intel-secl/intel-secl/v3/pkg/model/ta"
+	"github.com/pkg/errors"
 )
 
 var cpuFlags = []string{
@@ -69,7 +69,7 @@ type smbiosTable struct {
 func (smbiosInfoParser *smbiosInfoParser) Init() error {
 
 	if _, err := os.Stat(smbiosFile); os.IsNotExist(err) {
-		return fmt.Errorf("Could not find SMBIOS file '%s'", smbiosFile)
+		return errors.Errorf("Could not find SMBIOS file '%s'", smbiosFile)
 	}
 
 	return nil
@@ -81,7 +81,7 @@ func (smbiosInfoParser *smbiosInfoParser) Parse(hostInfo *model.HostInfo) error 
 
 	file, err := os.Open(smbiosFile)
 	if err != nil {
-		fmt.Errorf("Could not open SMBIOS file '%s': %w", smbiosFile, err)
+		errors.Wrapf(err, "Could not open SMBIOS file '%s'", smbiosFile)
 	}
 
 	defer func() {
@@ -136,7 +136,7 @@ func (smbiosInfoParser *smbiosInfoParser) parseNextTable(file *os.File) (*smbios
 	writer.Write(header)
 	_, err = io.CopyN(writer, file, int64(length-4))
 	if err != nil {
-		return nil, fmt.Errorf("Failed to copy Data with length 0x%x from SMBIOS table at 0x%x: %w", length-4, off, err)
+		return nil, errors.Wrapf(err, "Failed to copy Data with length 0x%x from SMBIOS table at 0x%x", length-4, off)
 	}
 
 	table.Data = writer.Bytes()
@@ -151,7 +151,7 @@ func (smbiosInfoParser *smbiosInfoParser) parseNextTable(file *os.File) (*smbios
 	// read the first byte of the string section (so we can check for empty)
 	err = binary.Read(file, binary.LittleEndian, &char)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to read leading byte of strings section from SMBIOS table at 0x%x: %w", off, err)
+		return nil, errors.Wrapf(err, "Failed to read leading byte of strings section from SMBIOS table at 0x%x", off)
 	}
 
 	for {
@@ -161,7 +161,7 @@ func (smbiosInfoParser *smbiosInfoParser) parseNextTable(file *os.File) (*smbios
 			// strings section.
 			err = binary.Read(file, binary.LittleEndian, &char)
 			if err != nil {
-				return nil, fmt.Errorf("Failed to read the second terminating byte of strings section from SMBIOS table at 0x%x: %w", off, err)
+				return nil, errors.Wrapf(err, "Failed to read the second terminating byte of strings section from SMBIOS table at 0x%x", off)
 			}
 
 			if char == 0 {
@@ -176,7 +176,7 @@ func (smbiosInfoParser *smbiosInfoParser) parseNextTable(file *os.File) (*smbios
 		for {
 			err = binary.Read(file, binary.LittleEndian, &char)
 			if err != nil {
-				return nil, fmt.Errorf("Failed to string byte from SMBIOS table at 0x%x: %w", off, err)
+				return nil, errors.Wrapf(err, "Failed to string byte from SMBIOS table at 0x%x", off)
 			}
 
 			if char == 0 {
@@ -202,19 +202,19 @@ var readers = map[uint8]func(*smbiosTable, *model.HostInfo) error{
 		// "Vendor" at 4h
 		hostInfo.BiosName, err = table.getString(4)
 		if err != nil {
-			return fmt.Errorf("Could not read BiosName: %w", err)
+			return errors.Wrap(err, "Could not read BiosName")
 		}
 
 		// "BiosVersion" at 5h
 		hostInfo.BiosVersion, err = table.getString(5)
 		if err != nil {
-			return fmt.Errorf("Could not read BiosVersion: %w", err)
+			return errors.Wrap(err, "Could not read BiosVersion")
 		}
 
 		// see SMBIOS 7.1.2
 		biosCharacteristicsExensions, err := table.getBYTE(13)
 		if err != nil {
-			return fmt.Errorf("Could not read BIOS Characteristics Extensions: %w", err)
+			return errors.Wrap(err, "Could not read BIOS Characteristics Extensions")
 		}
 
 		if biosCharacteristicsExensions&constUefiFlag == constUefiFlag {
@@ -230,7 +230,7 @@ var readers = map[uint8]func(*smbiosTable, *model.HostInfo) error{
 		// The hardware-uuid is at offset 8 and is 16 bytes long, make sure we at least have
 		// that much data
 		if len(table.Data) < 24 {
-			return fmt.Errorf("The Data size was to small (0x%x) to parse the SMBIOS hardware-uuid", len(table.Data))
+			return errors.Errorf("The Data size was to small (0x%x) to parse the SMBIOS hardware-uuid", len(table.Data))
 		}
 
 		// Custom parsing of the uuid -- couldn't use uuid package due to byte order.
@@ -263,7 +263,7 @@ var readers = map[uint8]func(*smbiosTable, *model.HostInfo) error{
 		// // TODO:  Add "Serial Number" at 7h
 		// serialNumber, err := table.getString(7)
 		// if err != nil {
-		// 	return fmt.Errorf("Could not read Serial Number: %w", err)
+		// 	return errors.Wrapf(err, "Could not read Serial Number")
 		// }
 
 		// fmt.Println(serialNumber)
@@ -276,7 +276,7 @@ var readers = map[uint8]func(*smbiosTable, *model.HostInfo) error{
 
 		// Make sure there is enough data for this function
 		if len(table.Data) < 16 {
-			return fmt.Errorf("The Data size was to small (0x%x) to parse the SMBIOS process-info", len(table.Data))
+			return errors.Errorf("The Data size was to small (0x%x) to parse the SMBIOS process-info", len(table.Data))
 		}
 
 		// Each of the SMBIOS files in the test directory contain two Type 4
@@ -299,7 +299,7 @@ var readers = map[uint8]func(*smbiosTable, *model.HostInfo) error{
 			processorFlags := ""
 			edx, err := table.getQWORD(12)
 			if err != nil {
-				return fmt.Errorf("Could not read EDX value: %w", err)
+				return errors.Wrap(err, "Could not read EDX value")
 			}
 
 			for i, flag := range cpuFlags {
@@ -317,7 +317,7 @@ var readers = map[uint8]func(*smbiosTable, *model.HostInfo) error{
 
 func (table *smbiosTable) getBYTE(off int) (byte, error) {
 	if len(table.Data) < off+1 {
-		return 0, fmt.Errorf("Could not get BYTE, the offset '%x' exceeded the length of the SMBIOS data", off)
+		return 0, errors.Errorf("Could not get BYTE, the offset '%x' exceeded the length of the SMBIOS data", off)
 	}
 
 	return table.Data[off], nil
@@ -325,7 +325,7 @@ func (table *smbiosTable) getBYTE(off int) (byte, error) {
 
 func (table *smbiosTable) getWORD(off int) (uint16, error) {
 	if len(table.Data) < off+2 {
-		return 0, fmt.Errorf("Could not get WORD, the offset '%x' exceeded the length of the SMBIOS data", off)
+		return 0, errors.Errorf("Could not get WORD, the offset '%x' exceeded the length of the SMBIOS data", off)
 	}
 
 	return binary.LittleEndian.Uint16(table.Data[off : off+2]), nil
@@ -333,7 +333,7 @@ func (table *smbiosTable) getWORD(off int) (uint16, error) {
 
 func (table *smbiosTable) getDWORD(off int) (uint32, error) {
 	if len(table.Data) < off+4 {
-		return 0, fmt.Errorf("Could not get DWORD, the offset '%x' exceeded the length of the SMBIOS data", off)
+		return 0, errors.Errorf("Could not get DWORD, the offset '%x' exceeded the length of the SMBIOS data", off)
 	}
 
 	return binary.LittleEndian.Uint32(table.Data[off : off+4]), nil
@@ -341,7 +341,7 @@ func (table *smbiosTable) getDWORD(off int) (uint32, error) {
 
 func (table *smbiosTable) getQWORD(off int) (uint64, error) {
 	if len(table.Data) < off+8 {
-		return 0, fmt.Errorf("Could not get QWORD, the offset '%x' exceeded the length of the SMBIOS data", off)
+		return 0, errors.Errorf("Could not get QWORD, the offset '%x' exceeded the length of the SMBIOS data", off)
 	}
 
 	return binary.LittleEndian.Uint64(table.Data[off : off+8]), nil
@@ -355,7 +355,7 @@ func (table *smbiosTable) getString(off int) (string, error) {
 
 	// the string references start at 1, convert to zero index (i.e., -1)
 	if len(table.Strings) < int(b-1) {
-		return "", fmt.Errorf("Table index '%x' had  invalid string index '%x'", off, b)
+		return "", errors.Errorf("Table index '%x' had  invalid string index '%x'", off, b)
 	}
 
 	return table.Strings[b-1], nil

@@ -6,10 +6,10 @@ package hostinfo
 
 import (
 	"encoding/binary"
-	"fmt"
 	"os"
 
 	model "github.com/intel-secl/intel-secl/v3/pkg/model/ta"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -37,7 +37,7 @@ type msrInfoParser struct {
 func (msrInfoParser *msrInfoParser) Init() error {
 
 	if _, err := os.Stat(msrFile); os.IsNotExist(err) {
-		return fmt.Errorf("Could not find MSR file '%s'", msrFile)
+		return errors.Wrapf(err, "Could not find MSR file '%s'", msrFile)
 	}
 
 	msrInfoParser.msrReader = &msrReaderImpl{}
@@ -49,12 +49,12 @@ func (msrInfoParser *msrInfoParser) Parse(hostInfo *model.HostInfo) error {
 
 	err := msrInfoParser.parseTxt(hostInfo)
 	if err != nil {
-		return fmt.Errorf("Failed to parse TXT: %w", err)
+		return errors.Wrap(err, "Failed to parse TXT")
 	}
 
 	err = msrInfoParser.parseCbnt(hostInfo)
 	if err != nil {
-		return fmt.Errorf("Failed to parse CBNT: %w", err)
+		return errors.Wrap(err, "Failed to parse CBNT")
 	}
 
 	return nil
@@ -66,12 +66,12 @@ func (msrInfoParser *msrInfoParser) parseTxt(hostInfo *model.HostInfo) error {
 
 	txtFlags, err := msrInfoParser.msrReader.ReadAt(txtMsrOffset)
 	if err != nil {
-		return fmt.Errorf("Failed to read TXT MSR flags: %w", err)
+		return errors.Wrap(err, "Failed to read TXT MSR flags")
 	}
 
 	bits, err := bitShift(txtFlags, 1, 0)
 	if err != nil {
-		return fmt.Errorf("Failed to extract TXT enabled bits: %w", err)
+		return errors.Wrap(err, "Failed to extract TXT enabled bits")
 	}
 
 	hostInfo.HardwareFeatures.TXT.Enabled = (bits == txtEnabledBits)
@@ -83,19 +83,19 @@ func (msrInfoParser *msrInfoParser) parseCbnt(hostInfo *model.HostInfo) error {
 
 	cbntFlags, err := msrInfoParser.msrReader.ReadAt(cbntMsrOffset)
 	if err != nil {
-		return fmt.Errorf("Failed to read CBNT MSR flags: %w", err)
+		return errors.Wrap(err, "Failed to read CBNT MSR flags")
 	}
 
 	enabledBits, err := bitShift(cbntFlags, 32, 32)
 	if err != nil {
-		return fmt.Errorf("Failed to extract CBNT enabled flags: %w", err)
+		return errors.Wrap(err, "Failed to extract CBNT enabled flags")
 	}
 
 	hostInfo.HardwareFeatures.CBNT.Enabled = (enabledBits == 1)
 	if hostInfo.HardwareFeatures.CBNT.Enabled == true {
 		profileBits, err := bitShift(cbntFlags, 7, 0)
 		if err != nil {
-			return fmt.Errorf("Failed to extract CBNT profile flags: %w", err)
+			return errors.Wrap(err, "Failed to extract CBNT profile flags")
 		}
 
 		//hostInfo.HardwareFeatures.CBNT.Meta.MSR = "mk ris kfm" // TODO: Should these be added to ProcessorFlags?  What code uses these?
@@ -108,7 +108,7 @@ func (msrInfoParser *msrInfoParser) parseCbnt(hostInfo *model.HostInfo) error {
 		} else if profileBits == cbntProfile5Flags {
 			profileString = cbntProfile5
 		} else {
-			return fmt.Errorf("Unexpected CBNT profile flags %08x", profileBits)
+			return errors.Wrapf(err, "Unexpected CBNT profile flags %08x", profileBits)
 		}
 
 		hostInfo.HardwareFeatures.CBNT.Meta.Profile = profileString
@@ -131,7 +131,7 @@ func (msrReaderImpl *msrReaderImpl) ReadAt(offset int64) (uint64, error) {
 
 	msr, err := os.Open(msrFile)
 	if err != nil {
-		return 0, fmt.Errorf("Failed to open MSR from '%s': %w", msrFile, err)
+		return 0, errors.Wrapf(err, "Failed to open MSR from '%s'", msrFile)
 	}
 
 	defer func() {
@@ -143,15 +143,13 @@ func (msrReaderImpl *msrReaderImpl) ReadAt(offset int64) (uint64, error) {
 
 	_, err = msr.Seek(offset, 0)
 	if err != nil {
-		return 0, fmt.Errorf("Could not seek to MSR location '%x' in file '%s'", offset, msrFile)
+		return 0, errors.Errorf("Could not seek to MSR location '%x' in file '%s'", offset, msrFile)
 	}
 
 	err = binary.Read(msr, binary.LittleEndian, &results)
 	if err != nil {
-		return 0, fmt.Errorf("Failed to read results from MSR file '%s': %w", msrFile, err)
+		return 0, errors.Wrapf(err, "Failed to read results from MSR file '%s'", msrFile)
 	}
-
-	//	fmt.Printf("MSR[%x]: %x\n", offset, results)
 
 	return results, nil
 }
@@ -159,7 +157,7 @@ func (msrReaderImpl *msrReaderImpl) ReadAt(offset int64) (uint64, error) {
 func bitShift(value uint64, hibit uint, lowbit uint) (uint64, error) {
 	bits := hibit - lowbit + 1
 	if bits > 64 {
-		return 0, fmt.Errorf("Invalid hi/low bit shift parameters: %x : %x", lowbit, hibit)
+		return 0, errors.Errorf("Invalid hi/low bit shift parameters: %x : %x", lowbit, hibit)
 	}
 
 	value >>= lowbit

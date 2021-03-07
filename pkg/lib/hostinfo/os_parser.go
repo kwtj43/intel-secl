@@ -6,12 +6,12 @@ package hostinfo
 
 import (
 	"bufio"
-	"fmt"
 	"io"
 	"os"
 	"strings"
 
 	model "github.com/intel-secl/intel-secl/v3/pkg/model/ta"
+	"github.com/pkg/errors"
 )
 
 // osInfoParser collects the HostInfo's OSName and OSVersion fields
@@ -21,7 +21,7 @@ type osInfoParser struct{}
 
 func (osInfoParser *osInfoParser) Init() error {
 	if _, err := os.Stat(osReleaseFile); os.IsNotExist(err) {
-		return fmt.Errorf("Could not find os-release file '%s'", osReleaseFile)
+		return errors.Errorf("Could not find os-release file '%s'", osReleaseFile)
 	}
 
 	return nil
@@ -32,7 +32,7 @@ func (osInfoParser *osInfoParser) Parse(hostInfo *model.HostInfo) error {
 
 	file, err := os.Open(osReleaseFile)
 	if err != nil {
-		return fmt.Errorf("Failed to open os-release file '%s'", osReleaseFile)
+		return errors.Errorf("Failed to open os-release file '%s'", osReleaseFile)
 	}
 
 	defer func() {
@@ -51,7 +51,7 @@ func (osInfoParser *osInfoParser) Parse(hostInfo *model.HostInfo) error {
 				break
 			}
 
-			return fmt.Errorf("Error parsing os information from file '%s': %w", osReleaseFile, err)
+			return errors.Wrapf(err, "Error parsing os information from file '%s'", osReleaseFile)
 		}
 
 		line = strings.TrimSpace(line)
@@ -61,14 +61,25 @@ func (osInfoParser *osInfoParser) Parse(hostInfo *model.HostInfo) error {
 
 		split := strings.Split(line, "=")
 		if len(split) != 2 {
-			return fmt.Errorf("'%s' is not a valid line in file '%s'", line, osReleaseFile)
+			return errors.Errorf("'%s' is not a valid line in file '%s'", line, osReleaseFile)
 		}
 
 		if split[0] == "NAME" {
 			hostInfo.OSName = strings.ReplaceAll(split[1], "\"", "")
+
+			// TODO: os-release contains NAME="Red Hat Enterprise Linux" where 'lsbrelease' returned
+			// RedHatEnterprise.  Strip out the strings and consider adding a field in hostinfo that
+			// indicates the "linux" vs. "windows" vs. ???.
+			hostInfo.OSName = strings.ReplaceAll(hostInfo.OSName, " ", "")
 		} else if split[0] == "VERSION_ID" {
 			hostInfo.OSVersion = strings.ReplaceAll(split[1], "\"", "")
 		}
+	}
+
+	// TODO:  This is a hack to get flavor-tempates (using "RedHatEnterprise").  We should
+	// add "os_type:linux" and update the templates.
+	if hostInfo.OSName == "RedHatEnterpriseLinux" {
+		hostInfo.OSName = "RedHatEnterprise"
 	}
 
 	return nil

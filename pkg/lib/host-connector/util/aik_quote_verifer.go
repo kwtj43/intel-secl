@@ -355,7 +355,13 @@ func getPcrEventLog(eventLog string) (types.PcrEventLogMapFC, error) {
 	defer log.Trace("util/aik_quote_verifier:getPcrEventLog() Leaving")
 	var pcrEventLogMap types.PcrEventLogMapFC
 	var measureLogs []types.MeasureLog
-	err := json.Unmarshal([]byte(eventLog), &measureLogs)
+
+	eventLogJSON, err := base64.StdEncoding.DecodeString(eventLog)
+	if err != nil {
+		return types.PcrEventLogMapFC{}, errors.Wrap(err, "Could not decode base64 eventlog")
+	}
+
+	err = json.Unmarshal(eventLogJSON, &measureLogs)
 	if err != nil {
 		return types.PcrEventLogMapFC{}, errors.Wrap(err, "util/aik_quote_verifier:getPcrEventLog() Error unmarshalling measureLog")
 	}

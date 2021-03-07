@@ -5,10 +5,9 @@
 package hostinfo
 
 import (
-	"fmt"
-
 	commonLog "github.com/intel-secl/intel-secl/v3/pkg/lib/common/log"
 	model "github.com/intel-secl/intel-secl/v3/pkg/model/ta"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -19,6 +18,8 @@ var (
 		&osInfoParser{},
 		&msrInfoParser{}, // order matters here -- txt info needs on processor flags from smbios
 		&tpmInfoParser{},
+		&shellInfoParser{},
+		&fileInfoParser{},
 	}
 
 	log = commonLog.GetDefaultLogger()
@@ -51,20 +52,22 @@ func NewHostInfoParser() (HostInfoParser, error) {
 	for _, infoParser := range infoParsers {
 		err = infoParser.Init()
 		if err != nil {
-			return nil, fmt.Errorf("Failed to intialize parser: %w", err)
+			return nil, errors.Wrap(err, "Failed to intialize parser")
 		}
 	}
 
-	hostInfoParser := hostInfoParser{}
+	hostInfoParser := hostInfoParserImpl{}
 
 	return &hostInfoParser, nil
 }
 
-type hostInfoParser struct {
-}
+//-------------------------------------------------------------------------------------------------
+// HostInfoParser implementation
+//-------------------------------------------------------------------------------------------------
+type hostInfoParserImpl struct{}
 
 // Parse creates and populates a HostInfo structure.
-func (hostInfoParser *hostInfoParser) Parse() (*model.HostInfo, error) {
+func (hostInfoParser *hostInfoParserImpl) Parse() (*model.HostInfo, error) {
 
 	hostInfo := model.HostInfo{}
 	var err error
@@ -72,7 +75,7 @@ func (hostInfoParser *hostInfoParser) Parse() (*model.HostInfo, error) {
 	for _, infoParser := range infoParsers {
 		err = infoParser.Parse(&hostInfo)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to parse host info: %w", err)
+			return nil, errors.Wrapf(err, "An error occurred in '%T' while attempting to parse hostinfo.", infoParser)
 		}
 	}
 

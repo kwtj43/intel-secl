@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -96,6 +97,8 @@ func (smbiosInfoParser *smbiosInfoParser) Parse(hostInfo *model.HostInfo) error 
 		if err != nil {
 			return err
 		}
+
+		fmt.Printf("Loaded SMBIOS table type %d\n", table.Type())
 
 		if readerFunc, ok := readers[table.Type()]; ok {
 			err = readerFunc(table, hostInfo)

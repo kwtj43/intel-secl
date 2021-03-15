@@ -30,6 +30,22 @@ func testSMBIOS(t *testing.T, expectedResults *model.HostInfo) {
 	}
 }
 
+func TestBmcSmbios(t *testing.T) {
+
+	smbiosFile = "test_data/misc/smbios2"
+	hostInfo := model.HostInfo{}
+
+	smbiosInfoParser := smbiosInfoParser{}
+	smbiosInfoParser.Init()
+
+	err := smbiosInfoParser.Parse(&hostInfo)
+	if err != nil {
+		t.Errorf("Failed to parse SMBIOS: %v", err)
+	}
+
+	t.Logf("%+v\n", hostInfo)
+}
+
 func TestSmbiosWhitley(t *testing.T) {
 
 	smbiosFile = "test_data/whitley/DMI"

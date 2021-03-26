@@ -40,6 +40,8 @@ type HostDataFetcherConfig struct {
 	RetryTimeMinutes      int
 	HostStatusStore       HostStatusStore
 	HostStore             HostStore
+	FlavorGroupStore      FlavorGroupStore
+	FlavorStore           FlavorStore
 	HostTrustCache        *lru.Cache
 }
 

@@ -275,10 +275,11 @@ func (hc *HostController) CreateHost(reqHost hvs.HostCreateRequest) (interface{}
 	}
 
 	defaultLog.Debugf("Connecting to host to get the hardware UUID of the host : %s", reqHost.HostName)
+	var hostState hvs.HostState
 	// connect to the host and retrieve the host info
 	hostInfo, err := hc.getHostInfo(connectionString)
 	if err != nil {
-		hostState := utils.DetermineHostState(err)
+		hostState = utils.DetermineHostState(err)
 		defaultLog.Warnf("Could not connect to host, hardware UUID will not be set: %s", hostState.String())
 	}
 
@@ -293,13 +294,14 @@ func (hc *HostController) CreateHost(reqHost hvs.HostCreateRequest) (interface{}
 	var fgNames []string
 	if len(reqHost.FlavorgroupNames) != 0 {
 		fgNames = reqHost.FlavorgroupNames
-	} else {
+	} else if hostInfo != nil && hostInfo.HardwareUUID != "" {
+		// if the host is reachable and no flavorgroups are provided in the request, assign the host to "automatic" flavorgroup
 		defaultLog.Debug("Flavorgroup names not present in request, associating with default ones")
 		fgNames = append(fgNames, models.FlavorGroupsAutomatic.String())
 	}
 
-	// Link to default software and workload groups if host is linux
-	if hostInfo != nil && utils.IsLinuxHost(hostInfo) {
+	// Link to default software and workload groups if host is linux and if the specific flavorgroups weren't a part of host create criteria
+	if hostInfo != nil && utils.IsLinuxHost(hostInfo) && len(reqHost.FlavorgroupNames) == 0 {
 		defaultLog.Debug("Host is linux, associating with default software flavorgroups")
 		swFgs := utils.GetDefaultSoftwareFlavorGroups(hostInfo.InstalledComponents)
 		fgNames = append(fgNames, swFgs...)
@@ -339,9 +341,11 @@ func (hc *HostController) CreateHost(reqHost hvs.HostCreateRequest) (interface{}
 	}
 
 	defaultLog.Debugf("Associating host %s with flavorgroups %+q", reqHost.HostName, fgNames)
-	if err := hc.linkFlavorgroupsToHost(fgNames, createdHost.Id); err != nil {
-		defaultLog.WithError(err).Error("controllers/host_controller:CreateHost() Host FlavorGroup association failed")
-		return nil, http.StatusInternalServerError, &commErr.ResourceError{Message: "Failed to associate Host with flavorgroups"}
+	if len(fgNames) > 0 {
+		if err := hc.linkFlavorgroupsToHost(fgNames, createdHost.Id); err != nil {
+			defaultLog.WithError(err).Error("controllers/host_controller:CreateHost() Host FlavorGroup association failed")
+			return nil, http.StatusInternalServerError, &commErr.ResourceError{Message: "Failed to associate Host with flavorgroups"}
+		}
 	}
 
 	defaultLog.Debugf("Associating host %s with all host unique flavors", reqHost.HostName)

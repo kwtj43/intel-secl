@@ -73,6 +73,8 @@ type Service struct {
 	hcf               hc.HostConnectorProvider
 	hss               domain.HostStatusStore
 	hs                domain.HostStore
+	fgs               domain.FlavorGroupStore
+	fs                domain.FlavorStore
 	hostTrustCache    *lru.Cache
 }
 
@@ -89,6 +91,8 @@ func NewService(cfg domain.HostDataFetcherConfig, workers int) (*Service, domain
 		hss:               cfg.HostStatusStore,
 		hcCfg:             cfg.HostConnectionConfig,
 		hs:                cfg.HostStore,
+		fgs:               cfg.FlavorGroupStore,
+		fs:                cfg.FlavorStore,
 		hostTrustCache:    cfg.HostTrustCache,
 	}
 	if svc.hss == nil {
@@ -422,12 +426,40 @@ func (svc *Service) updateMissingHostDetails(hostId uuid.UUID, manifest *types.H
 			return
 		}
 		hostInfo := manifest.HostInfo
-		// Link to default software and workload groups if host is linux
-		if utils.IsLinuxHost(&hostInfo) {
-			defaultLog.Debug("hostfetcher/Service:updateMissingHostDetails() Host is linux, associating with default software flavorgroups")
-			swFgs := utils.GetDefaultSoftwareFlavorGroups(hostInfo.InstalledComponents)
-			host.FlavorgroupNames = append(host.FlavorgroupNames, swFgs...)
+		// During host registration, if flavorgroup-names were not provided and the host was not connected, the default flavorgroups cannot be added.
+		// Check to see if the host has any flavorgroups and if not, assign the defaults
+		fgs, err := svc.hs.SearchFlavorgroups(hostId)
+		if err != nil {
+			defaultLog.Info("hostfetcher/Service:updateMissingHostDetails() Failed to get flavorgroups associated with the host")
+			return
 		}
+		// if no flavorgroups are associated with the host, assign default flavorgroups
+		if len(fgs) == 0 {
+			defaultLog.Info("hostfetcher/Service:updateMissingHostDetails() Associating hosts with flavorgroup, since no flavorgroups were associated during host registration due to host connection issues")
+			// associate the host with automatic flavorgroup
+			host.FlavorgroupNames = append(host.FlavorgroupNames, models.FlavorGroupsAutomatic.String())
+			// Link to default software and workload groups if host is linux
+			if utils.IsLinuxHost(&hostInfo) {
+				defaultLog.Debug("hostfetcher/Service:updateMissingHostDetails() Host is linux, associating with default software flavorgroups")
+				swFgs := utils.GetDefaultSoftwareFlavorGroups(hostInfo.InstalledComponents)
+				host.FlavorgroupNames = append(host.FlavorgroupNames, swFgs...)
+			}
+			// get flavorgroupID to create host-flavorgroup links
+			var fgIDs []uuid.UUID
+			for _, fgName := range host.FlavorgroupNames {
+				existingFlavorGroups, _ := svc.fgs.Search(&models.FlavorGroupFilterCriteria{
+					NameEqualTo: fgName,
+				})
+				fgIDs = append(fgIDs, existingFlavorGroups[0].ID)
+			}
+			// add host-flavorgroup link
+			err = svc.hs.AddFlavorgroups(hostId, fgIDs)
+			if err != nil {
+				defaultLog.Error("hostfetcher/Service:updateMissingHostDetails() Failed to create host-flavorgroup links")
+				return
+			}
+		}
+
 		if manifest.HostInfo.HardwareUUID != "" {
 			hwUuid, err := uuid.Parse(manifest.HostInfo.HardwareUUID)
 			if err == nil {
@@ -437,6 +469,32 @@ func (svc *Service) updateMissingHostDetails(hostId uuid.UUID, manifest *types.H
 		err = svc.hs.Update(host)
 		if err != nil {
 			defaultLog.Info("hostfetcher/Service:updateMissingHostDetails() Failed to updated host information while Verifying host details")
+		}
+		// If host was unreachable during registration, the host-unique flavors are not associated with it at the time of registration
+		// check if host has any host_unique flavors and associate them
+		defaultLog.Info("hostfetcher/Service:updateMissingHostDetails() Checking if host has an host_unique flavors and associating them")
+		if manifest.HostInfo.HardwareUUID != "" {
+			signedFlavors, err := svc.fs.Search(&models.FlavorVerificationFC{
+				FlavorFC: models.FlavorFilterCriteria{
+					Key:   "hardware_uuid",
+					Value: manifest.HostInfo.HardwareUUID,
+				},
+			})
+			if err != nil {
+				defaultLog.Errorf("hostfetcher/Service:updateMissingHostDetails() Failed to search host_unique flavors for host with hardware UUID %s", manifest.HostInfo.HardwareUUID)
+				return
+			}
+
+			var flavorIds []uuid.UUID
+			for _, signedFlavor := range signedFlavors {
+				flavorIds = append(flavorIds, signedFlavor.Flavor.Meta.ID)
+			}
+			if len(flavorIds) > 0 {
+				if _, err := svc.hs.AddHostUniqueFlavors(hostId, flavorIds); err != nil {
+					defaultLog.Errorf("hostfetcher/Service:updateMissingHostDetails() Could not create host-unique flavors link")
+					return
+				}
+			}
 		}
 	}
 }

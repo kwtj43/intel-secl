@@ -30,6 +30,8 @@ import (
 var (
 	qs             domain.QueueStore
 	hs             *mocks.MockHostStore
+	fs             *mocks.MockFlavorStore
+	fgs            *mocks.MockFlavorgroupStore
 	hss            *mocks.MockHostStatusStore
 	cfg            domain.HostDataFetcherConfig
 	ht             domain.HostTrustManager
@@ -45,6 +47,8 @@ var (
 func SetupManagerTests() {
 	qs = mocks.NewQueueStore()
 	hs = mocks.NewMockHostStore()
+	fs = mocks.NewMockFlavorStore()
+	fgs = mocks.NewFakeFlavorgroupStore()
 	hss = mocks.NewMockHostStatusStore()
 	hcs = mocks.NewMockHostCredentialStore()
 
@@ -68,6 +72,8 @@ func SetupManagerTests() {
 		RetryTimeMinutes: 7,
 		HostStatusStore:  hss,
 		HostStore:        hs,
+		FlavorGroupStore: fgs,
+		FlavorStore:      fs,
 		HostTrustCache:   lru.New(5),
 	}
 

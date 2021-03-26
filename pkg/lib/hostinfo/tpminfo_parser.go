@@ -72,7 +72,7 @@ func (tpmInfoParser *tpmInfoParser) Parse(hostInfo *model.HostInfo) error {
 		hostInfo.HardwareFeatures.TPM.Enabled = true
 		hostInfo.HardwareFeatures.TPM.Meta.TPMVersion = constTpm20
 
-		// KWT: remove after rebase to v3.4
+		// KWT: remove after rebase to v3.5
 		hostInfo.HardwareFeatures.TPM.Meta.PCRBanks = constPcrBanks
 	}
 

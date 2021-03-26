@@ -263,7 +263,7 @@ var readers = map[uint8]func(*smbiosTable, *model.HostInfo) error{
 		hostInfo.HardwareUUID += "-"
 		hostInfo.HardwareUUID += hex.EncodeToString(uuid[10:16])
 
-		// // TODO:  Add "Serial Number" at 7h
+		// // TODO:  Add "Serial Number" to hostinfo at 7h
 		// serialNumber, err := table.getString(7)
 		// if err != nil {
 		// 	return errors.Wrapf(err, "Could not read Serial Number")
@@ -275,7 +275,7 @@ var readers = map[uint8]func(*smbiosTable, *model.HostInfo) error{
 	},
 	0x4: func(table *smbiosTable, hostInfo *model.HostInfo) error {
 
-		// See SMBIOS Table 7.4
+		// See SMBIOS Table 7.5
 
 		// Make sure there is enough data for this function
 		if len(table.Data) < 16 {

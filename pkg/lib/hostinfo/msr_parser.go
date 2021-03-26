@@ -22,7 +22,7 @@ const (
 	cbntProfile5      = "BTGP5"
 	txtMsrOffset      = 0x3A
 	txtEnabledBits    = 0x3
-	cbntMsrFlags      = "mk ris kfm"
+	cbntMsrFlags      = `mk ris kfm`
 )
 
 // msrReader is an internal interfaces that supports unit tests
@@ -64,22 +64,19 @@ func (msrInfoParser *msrInfoParser) Parse(hostInfo *model.HostInfo) error {
 func (msrInfoParser *msrInfoParser) parseTxt(hostInfo *model.HostInfo) error {
 
 	// We assume that TXT is enabled on Intel processors since 2009.
-	// KWT: Investigate the presence of SMX flag (strings.Contains(hostInfo.ProcessorFlags, "SMX"))
 	hostInfo.HardwareFeatures.TXT.Supported = true
 
-	if hostInfo.HardwareFeatures.TXT.Supported {
-		txtFlags, err := msrInfoParser.msrReader.ReadAt(txtMsrOffset)
-		if err != nil {
-			return errors.Wrap(err, "Failed to read TXT MSR flags")
-		}
-
-		bits, err := bitShift(txtFlags, 1, 0)
-		if err != nil {
-			return errors.Wrap(err, "Failed to extract TXT enabled bits")
-		}
-
-		hostInfo.HardwareFeatures.TXT.Enabled = (bits == txtEnabledBits)
+	txtFlags, err := msrInfoParser.msrReader.ReadAt(txtMsrOffset)
+	if err != nil {
+		return errors.Wrap(err, "Failed to read TXT MSR flags")
 	}
+
+	bits, err := bitShift(txtFlags, 1, 0)
+	if err != nil {
+		return errors.Wrap(err, "Failed to extract TXT enabled bits")
+	}
+
+	hostInfo.HardwareFeatures.TXT.Enabled = (bits == txtEnabledBits)
 
 	return nil
 }
@@ -105,7 +102,7 @@ func (msrInfoParser *msrInfoParser) parseCbnt(hostInfo *model.HostInfo) error {
 			return errors.Wrap(err, "Failed to extract CBNT profile flags")
 		}
 
-		hostInfo.HardwareFeatures.CBNT.Meta.MSR = cbntMsrFlags // KWT: Should these be added to ProcessorFlags?  What code uses these?
+		hostInfo.HardwareFeatures.CBNT.Meta.MSR = cbntMsrFlags
 
 		var profileString string
 		if profileBits == cbntProfile3Flags {

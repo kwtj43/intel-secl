@@ -76,6 +76,64 @@ func TestTboot(t *testing.T) {
 	compareHostInfo(t, &expectedResults, &actualResults)
 }
 
+func TestTagentComponent(t *testing.T) {
+
+	expectedResults := model.HostInfo{}
+	expectedResults.InstalledComponents = []string{constTagentComponent}
+
+	mockShellExecutor := new(mockShellExecutor)
+	mockShellExecutor.On("Execute", tagentCommand).Return("tagent version x.y.z", 0, nil)
+
+	shellInfoParser := shellInfoParser{
+		shellExecutor: mockShellExecutor,
+	}
+
+	actualResults := model.HostInfo{}
+	shellInfoParser.parseTagentComponent(&actualResults)
+
+	compareHostInfo(t, &expectedResults, &actualResults)
+}
+
+func TestBothComponents(t *testing.T) {
+
+	expectedResults := model.HostInfo{}
+	expectedResults.InstalledComponents = []string{constTagentComponent, constWlagentComponent}
+
+	mockShellExecutor := new(mockShellExecutor)
+	mockShellExecutor.On("Execute", tagentCommand).Return("tagent version x.y.z", 0, nil)
+	mockShellExecutor.On("Execute", wlagentCommand).Return("wlagent version x.y.z", 0, nil)
+
+	shellInfoParser := shellInfoParser{
+		shellExecutor: mockShellExecutor,
+	}
+
+	actualResults := model.HostInfo{}
+	shellInfoParser.parseTagentComponent(&actualResults)
+	shellInfoParser.parseWlagentComponent(&actualResults)
+
+	compareHostInfo(t, &expectedResults, &actualResults)
+}
+
+func TestJustTagentComponent(t *testing.T) {
+
+	// In many cases, the Trust-Agent is installed and Workload Agent is not...
+	expectedResults := model.HostInfo{}
+	expectedResults.InstalledComponents = []string{constWlagentComponent}
+
+	mockShellExecutor := new(mockShellExecutor)
+	mockShellExecutor.On("Execute", wlagentCommand).Return("wlagent version x.y.z", 0, nil)
+	mockShellExecutor.On("Execute", wlagentCommand).Return("", constErrorCodeNotFound, nil)
+
+	shellInfoParser := shellInfoParser{
+		shellExecutor: mockShellExecutor,
+	}
+
+	actualResults := model.HostInfo{}
+	shellInfoParser.parseWlagentComponent(&actualResults)
+
+	compareHostInfo(t, &expectedResults, &actualResults)
+}
+
 //-------------------------------------------------------------------------------------------------
 // Mock implementation of shell for unit testing
 //-------------------------------------------------------------------------------------------------

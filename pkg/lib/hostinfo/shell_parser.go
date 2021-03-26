@@ -19,12 +19,16 @@ const (
 	constVmmNameDocker     = "Docker"
 	constVmmNameVirsh      = "Virsh"
 	constErrorCodeNotFound = 127 // Linux error code when a command is not found in the path
+	constTagentComponent   = "tagent"
+	constWlagentComponent  = "wlagent"
 )
 
 var (
 	dockerVersionCommand = []string{"docker", "--version", "--format='{{.Client.Version}}'"}
 	virshVersionCommand  = []string{"virsh", "-v"}
 	tbootCommand         = []string{"txt-stat", "--help"} // just run help to determine if the program is present
+	tagentCommand        = []string{"tagent", "version"}
+	wlagentCommand       = []string{"wlagent", "version"}
 )
 
 // shellInfoParser interacts with the linux shell to collect various fields in a HostInfo
@@ -48,6 +52,16 @@ func (shellInfoParser *shellInfoParser) Parse(hostInfo *model.HostInfo) error {
 	err = shellInfoParser.parseTboot(hostInfo)
 	if err != nil {
 		return errors.Wrap(err, "Failed to parse TBOOT information")
+	}
+
+	err = shellInfoParser.parseTagentComponent(hostInfo)
+	if err != nil {
+		return errors.Wrap(err, "Failed to parse tagent component information")
+	}
+
+	err = shellInfoParser.parseWlagentComponent(hostInfo)
+	if err != nil {
+		return errors.Wrap(err, "Failed to parse wlagent component information")
 	}
 
 	return nil
@@ -81,7 +95,7 @@ func (shellInfoParser *shellInfoParser) parseVmm(hostInfo *model.HostInfo) error
 	return nil
 }
 
-// TODO:  Turn this into a "SoftwareFeature" {installed: false, version: 1.9.12} and
+// TODO:  Consider turning this into a "SoftwareFeature" {installed: false, version: 1.9.12} and
 // use modprobe.
 func (shellInfoParser *shellInfoParser) parseTboot(hostInfo *model.HostInfo) error {
 
@@ -92,6 +106,34 @@ func (shellInfoParser *shellInfoParser) parseTboot(hostInfo *model.HostInfo) err
 
 	if returnCode == 0 {
 		hostInfo.TbootInstalled = true
+	}
+
+	return nil
+}
+
+func (shellInfoParser *shellInfoParser) parseTagentComponent(hostInfo *model.HostInfo) error {
+
+	_, returnCode, err := shellInfoParser.shellExecutor.Execute(tagentCommand)
+	if err != nil {
+		return err
+	}
+
+	if returnCode == 0 {
+		hostInfo.InstalledComponents = append(hostInfo.InstalledComponents, constTagentComponent)
+	}
+
+	return nil
+}
+
+func (shellInfoParser *shellInfoParser) parseWlagentComponent(hostInfo *model.HostInfo) error {
+
+	_, returnCode, err := shellInfoParser.shellExecutor.Execute(wlagentCommand)
+	if err != nil {
+		return err
+	}
+
+	if returnCode == 0 {
+		hostInfo.InstalledComponents = append(hostInfo.InstalledComponents, constWlagentComponent)
 	}
 
 	return nil

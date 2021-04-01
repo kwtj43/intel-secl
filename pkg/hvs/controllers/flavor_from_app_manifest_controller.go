@@ -150,7 +150,7 @@ func (controller FlavorFromAppManifestController) getConnectionStringByHostId(ho
 	defaultLog.Trace("controllers/flavor_from_app_manifest_controller:getConnectionStringByHostId() Entering")
 	defer defaultLog.Trace("controllers/flavor_from_app_manifest_controller:getConnectionStringByHostId() Leaving")
 
-	host, err := controller.FlavorController.HostCon.HStore.Retrieve(hostId)
+	host, err := controller.FlavorController.HostCon.HStore.Retrieve(hostId, nil)
 	if err != nil {
 		if strings.Contains(err.Error(), commErr.RowsNotFound) {
 			return "", http.StatusBadRequest, errors.New("Host with given ID does not exist")

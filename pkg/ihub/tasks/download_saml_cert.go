@@ -8,30 +8,52 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/url"
 	"os"
 
-	vsPlugin "github.com/intel-secl/intel-secl/v3/pkg/ihub/attestationPlugin"
+	"github.com/intel-secl/intel-secl/v3/pkg/clients/vs"
 	"github.com/intel-secl/intel-secl/v3/pkg/ihub/config"
+	"github.com/intel-secl/intel-secl/v3/pkg/ihub/constants"
 	"github.com/intel-secl/intel-secl/v3/pkg/lib/common/setup"
-
 	"github.com/pkg/errors"
+	"github.com/spf13/viper"
 )
 
 //DownloadSamlCert task for downloading SAML Certificate
 type DownloadSamlCert struct {
-	Config       *config.Configuration
-	SamlCertPath string
+	AttestationConfig *config.AttestationConfig
+	ConsoleWriter     io.Writer
+	SamlCertPath      string
 }
 
 //Run Runs the setup Task
 func (samlCert DownloadSamlCert) Run() error {
 
-	if samlCert.Config.AttestationService.AttestationType == "SGX" {
-		fmt.Println("Skipping Download SAML Cert Task for attestation type SGX")
+	attestationType := viper.GetString("attestation-type")
+	attestationURL := viper.GetString("attestation-service-url")
+
+	if attestationType == "SGX" {
+		fmt.Fprintln(samlCert.ConsoleWriter, "Skipping Download SAML Cert Task for attestation type SGX")
 		return nil
+	} else if attestationType == "" {
+		attestationType = constants.DefaultAttestationType
+		fmt.Fprintln(samlCert.ConsoleWriter, "Attestation type is not defined in environment, default attestation type set")
 	}
 
-	caCerts, err := vsPlugin.GetCaCerts("saml", samlCert.Config, "")
+	if attestationURL == "" {
+		return errors.New("tasks/download_saml_cert:Run() Missing attestation service endpoint url in environment")
+	}
+
+	baseURL, err := url.Parse(attestationURL)
+	if err != nil {
+		return errors.Wrap(err, "tasks/download_saml_cert:Run() Error in parsing attestation service URL")
+	}
+
+	vsClient := &vs.Client{
+		BaseURL: baseURL,
+	}
+
+	caCerts, err := vsClient.GetCaCerts("saml")
 	if err != nil {
 		return errors.Wrap(err, "tasks/download_saml_cert:Run() Failed to get SAML ca-certificates from HVS")
 	}
@@ -52,8 +74,8 @@ func (samlCert DownloadSamlCert) Run() error {
 //Validate validates the downloaded certificate
 func (samlCert DownloadSamlCert) Validate() error {
 
-	if samlCert.Config.AttestationService.AttestationType == "SGX" {
-		fmt.Println("tasks/download_saml_cert:Validate() Skipping download of SAML Cert task for SGX attestation")
+	if samlCert.AttestationConfig.AttestationType == "SGX" {
+		fmt.Fprintln(samlCert.ConsoleWriter, "tasks/download_saml_cert:Validate() Skipping download of SAML Cert task for SGX attestation")
 		return nil
 	}
 
@@ -71,8 +93,8 @@ func (samlCert DownloadSamlCert) Validate() error {
 
 func (samlCert DownloadSamlCert) PrintHelp(w io.Writer) {
 	var envHelp = map[string]string{
-		"ATTESTATION_TYPE": "Type of Attestation Service",
-		"ATTESTATION_URL":  "Base URL for the Attestation Service",
+		"ATTESTATION_TYPE":        "Type of Attestation Service",
+		"ATTESTATION_SERVICE_URL": "Base URL for the Attestation Service",
 	}
 	setup.PrintEnvHelp(w, "Following environment variables are required for download-saml-cert:", "", envHelp)
 	fmt.Fprintln(w, "")

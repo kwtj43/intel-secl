@@ -26,4 +26,6 @@
 #define RESULT_FAILED -1
 #define RESULT_SUCCESS 0
 
+#define ID_MAX_LENGTH 100
+
 #endif /* COMMON_H_ */

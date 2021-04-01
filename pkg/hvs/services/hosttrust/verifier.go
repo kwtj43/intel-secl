@@ -6,14 +6,19 @@
 package hosttrust
 
 import (
+	"sync"
+
+	"github.com/golang/groupcache/lru"
 	"github.com/google/uuid"
 	"github.com/intel-secl/intel-secl/v3/pkg/hvs/domain"
 	"github.com/intel-secl/intel-secl/v3/pkg/hvs/domain/models"
+	"github.com/intel-secl/intel-secl/v3/pkg/hvs/utils"
 	"github.com/intel-secl/intel-secl/v3/pkg/lib/flavor/common"
 	"github.com/intel-secl/intel-secl/v3/pkg/lib/host-connector/types"
 	"github.com/intel-secl/intel-secl/v3/pkg/lib/saml"
 	flavorVerifier "github.com/intel-secl/intel-secl/v3/pkg/lib/verifier"
 	"github.com/intel-secl/intel-secl/v3/pkg/model/hvs"
+	taModel "github.com/intel-secl/intel-secl/v3/pkg/model/ta"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
@@ -30,6 +35,9 @@ type Verifier struct {
 	CertsStore                      models.CertificatesStore
 	SamlIssuer                      saml.IssuerConfiguration
 	SkipFlavorSignatureVerification bool
+	hostQuoteReportCache            map[uuid.UUID]*models.QuoteReportCache
+	pcrCacheLock                    sync.RWMutex
+	HostTrustCache                  *lru.Cache
 }
 
 func NewVerifier(cfg domain.HostTrustVerifierConfig) domain.HostTrustVerifier {
@@ -42,21 +50,63 @@ func NewVerifier(cfg domain.HostTrustVerifierConfig) domain.HostTrustVerifier {
 		CertsStore:                      cfg.CertsStore,
 		SamlIssuer:                      cfg.SamlIssuerConfig,
 		SkipFlavorSignatureVerification: cfg.SkipFlavorSignatureVerification,
+		HostTrustCache:                  cfg.HostTrustCache,
+		hostQuoteReportCache:            make(map[uuid.UUID]*models.QuoteReportCache),
 	}
 }
 
-func (v *Verifier) Verify(hostId uuid.UUID, hostData *types.HostManifest, newData bool) (*models.HVSReport, error) {
+func getTrustPcrListReport(hostInfo taModel.HostInfo, report *hvs.TrustReport) []int {
+	defaultLog.Trace("hosttrust/verifier:getTrustPcrListReport() Entering")
+	defer defaultLog.Trace("hosttrust/verifier:getTrustPcrListReport() Leaving")
+
+	trustPcrMap := make(map[int]struct{})
+	var trustPcrList []int
+
+	for _, result := range report.Results {
+		if result.Rule.ExpectedPcr != nil {
+			pcrIndex := int(result.Rule.ExpectedPcr.Pcr.Index)
+			if _, ok := trustPcrMap[pcrIndex]; !ok {
+				trustPcrMap[pcrIndex] = struct{}{}
+				trustPcrList = append(trustPcrList, pcrIndex)
+			}
+		}
+	}
+	if len(trustPcrList) > 0 && utils.IsLinuxHost(&hostInfo) {
+		trustPcrList = append(trustPcrList, int(types.PCR15))
+	}
+	return trustPcrList
+}
+
+func (v *Verifier) Verify(hostId uuid.UUID, hostData *types.HostManifest, newData bool, preferHashMatch bool) (*models.HVSReport, error) {
 	defaultLog.Trace("hosttrust/verifier:Verify() Entering")
 	defer defaultLog.Trace("hosttrust/verifier:Verify() Leaving")
 	if hostData == nil {
 		return nil, ErrInvalidHostManiFest
 	}
-	//TODO: Fix HardwareUUID has to be uuid
+
 	hwUuid, err := uuid.Parse(hostData.HostInfo.HardwareUUID)
 	if err != nil || hwUuid == uuid.Nil {
 		return nil, ErrManifestMissingHwUUID
 	}
 
+	// check if the data has not changed
+	if preferHashMatch {
+		cacheEntry, ok := v.HostTrustCache.Get(hostId)
+		// check if the PCR Values are unchanged.
+		if ok {
+			cachedQuote := cacheEntry.(*models.QuoteReportCache)
+			if cachedQuote.QuoteDigest != "" && hostData.QuoteDigest != cachedQuote.QuoteDigest {
+				// retrieve the stored report
+				log.Debug("hosttrust/verifier:Verify() Quote values matches cached value - skipping flavor verification")
+				if report, err := v.refreshTrustReport(hostId, cachedQuote); err == nil {
+					return report, err
+				} else {
+					// log warning message here - continue as normal and create a report from newly fetched data
+					log.Warn("hosttrust/verifier:Verify() - error encountered while refreshing report - err : ", err)
+				}
+			}
+		}
+	}
 	// TODO : remove this when we remove the intermediate collection
 	flvGroupIds, err := v.HostStore.SearchFlavorgroups(hostId)
 	flvGroups, err := v.FlavorGroupStore.Search(&models.FlavorGroupFilterCriteria{Ids: flvGroupIds})
@@ -127,6 +177,15 @@ func (v *Verifier) Verify(hostId uuid.UUID, hostData *types.HostManifest, newDat
 		samlReport := samlReportGen.GenerateSamlReport(&finalTrustReport)
 		finalTrustReport.Trusted = finalTrustReport.IsTrusted()
 		log.Debugf("hosttrust/verifier:Verify() Saving new report for host: %s", hostId)
+		// new report - save it to the cache
+		trustPcrList := getTrustPcrListReport(hostData.HostInfo, &finalTrustReport)
+		defaultLog.Infof("hosttrust/verifier:add() PCR List %v for host %v ", hostId, trustPcrList)
+		newCacheEntry := &models.QuoteReportCache{
+			QuoteDigest:  hostData.QuoteDigest,
+			TrustPcrList: trustPcrList,
+			TrustReport:  &finalTrustReport,
+		}
+		v.HostTrustCache.Add(hostId, newCacheEntry)
 		hvsReport = v.storeTrustReport(hostId, &finalTrustReport, &samlReport)
 	}
 	return hvsReport, nil
@@ -182,6 +241,16 @@ func (v *Verifier) validateCachedFlavors(hostId uuid.UUID,
 	}
 	htc.trustReport = collectiveReport
 	return htc, nil
+}
+
+func (v *Verifier) refreshTrustReport(hostID uuid.UUID, cache *models.QuoteReportCache) (*models.HVSReport, error) {
+	defaultLog.Trace("hosttrust/verifier:refreshTrustReport() Entering")
+	defer defaultLog.Trace("hosttrust/verifier:refreshTrustReport() Leaving")
+	log.Debugf("hosttrust/verifier:refreshTrustReport() Generating SAML for host: %s using existing trust report", hostID)
+
+	samlReportGen := NewSamlReportGenerator(&v.SamlIssuer)
+	samlReport := samlReportGen.GenerateSamlReport(cache.TrustReport)
+	return v.storeTrustReport(hostID, cache.TrustReport, &samlReport), nil
 }
 
 func (v *Verifier) storeTrustReport(hostID uuid.UUID, trustReport *hvs.TrustReport, samlReport *saml.SamlAssertion) *models.HVSReport {

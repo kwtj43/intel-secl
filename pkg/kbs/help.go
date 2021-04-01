@@ -31,10 +31,10 @@ Usage of kbs setup:
 
 Available Tasks for setup:
 	all                                 Runs all setup tasks
-	server                              Setup http server on given port
 	download-ca-cert                    Download CMS root CA certificate
 	download-cert-tls                   Download CA certificate from CMS for tls
 	create-default-key-transfer-policy  Create default key transfer policy for KBS
+	update-service-config               Sets or Updates the Service configuration 
 `
 
 func (app *App) printUsage() {
@@ -47,5 +47,5 @@ func (app *App) printUsageWithError(err error) {
 }
 
 func (app *App) printVersion() {
-	fmt.Fprintf(app.consoleWriter(), "Key Broker Service %s-%s\nBuilt %s\n", version.Version, version.GitHash, version.BuildDate)
+	fmt.Fprintf(app.consoleWriter(), version.GetVersion())
 }

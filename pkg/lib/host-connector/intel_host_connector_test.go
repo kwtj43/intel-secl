@@ -87,7 +87,7 @@ func TestCreateHostManifestFromSampleData(t *testing.T) {
 	// the sample data in ./test used this nonce which needs to be provided to GetHostManifest...
 	nonce := "ZGVhZGJlZWZkZWFkYmVlZmRlYWRiZWVmZGVhZGJlZWZkZWFkYmVlZiA="
 
-	hostManifest, err := intelConnector.GetHostManifestAcceptNonce(nonce)
+	hostManifest, err := intelConnector.GetHostManifestAcceptNonce(nonce, nil)
 	assert.NoError(t, err)
 
 	json, err := json.Marshal(hostManifest)

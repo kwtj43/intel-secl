@@ -60,7 +60,7 @@ func (km *KmipManager) DeleteKey(attributes *models.KeyAttributes) error {
 		return errors.New("key is not created with KMIP key manager")
 	}
 
-	return km.client.DeleteSymmetricKey(attributes.KmipKeyID)
+	return km.client.DeleteKey(attributes.KmipKeyID)
 }
 
 func (km *KmipManager) RegisterKey(request *kbs.KeyRequest) (*models.KeyAttributes, error) {
@@ -78,6 +78,7 @@ func (km *KmipManager) RegisterKey(request *kbs.KeyRequest) (*models.KeyAttribut
 	keyAttributes := &models.KeyAttributes{
 		ID:               newUuid,
 		Algorithm:        request.KeyInformation.Algorithm,
+		KeyLength:        request.KeyInformation.KeyLength,
 		KmipKeyID:        request.KeyInformation.KmipKeyID,
 		TransferPolicyId: request.TransferPolicyID,
 		CreatedAt:        time.Now().UTC(),
@@ -96,8 +97,8 @@ func (km *KmipManager) TransferKey(attributes *models.KeyAttributes) ([]byte, er
 		return nil, errors.New("key is not created with KMIP key manager")
 	}
 
-	if attributes.Algorithm == constants.CRYPTOALG_AES {
-		return km.client.GetSymmetricKey(attributes.KmipKeyID)
+	if attributes.Algorithm == constants.CRYPTOALG_AES || attributes.Algorithm == constants.CRYPTOALG_RSA {
+		return km.client.GetKey(attributes.KmipKeyID, attributes.Algorithm, attributes.KeyLength)
 	} else {
 		return nil, errors.Errorf("%s algorithm is not supported", attributes.Algorithm)
 	}

@@ -7,6 +7,9 @@ package kbs
 import (
 	"crypto/x509/pkix"
 	"fmt"
+	"github.com/intel-secl/intel-secl/v3/pkg/kbs/config"
+	cos "github.com/intel-secl/intel-secl/v3/pkg/lib/common/os"
+	"os"
 	"strings"
 
 	"github.com/intel-secl/intel-secl/v3/pkg/kbs/constants"
@@ -29,7 +32,6 @@ func (app *App) setup(args []string) error {
 		if arg == "-f" || arg == "--file" {
 			if i+1 < len(args) {
 				ansFile = args[i+1]
-				break
 			} else {
 				return errors.New("Invalid answer file name")
 			}
@@ -49,7 +51,6 @@ func (app *App) setup(args []string) error {
 	if err != nil {
 		return errors.Wrap(err, "Failed to add setup task runner")
 	}
-	defer app.Config.Save(constants.DefaultConfigFilePath)
 	cmd := args[1]
 	// print help and return if applicable
 	if len(args) > 2 && args[2] == "--help" {
@@ -89,7 +90,17 @@ func (app *App) setup(args []string) error {
 			return errors.New("Failed to run setup task " + cmd)
 		}
 	}
-	return nil
+
+	err = app.Config.Save(constants.DefaultConfigFilePath)
+	if err != nil {
+		return errors.Wrap(err, "Failed to save configuration")
+	}
+	// Containers are always run as non root users, does not require changing ownership of config directories
+	if _, err := os.Stat("/.container-env"); err == nil {
+		return nil
+	}
+
+	return cos.ChownDirForUser(constants.ServiceUserName, app.configDir())
 }
 
 // App helper function for setting up the task runner
@@ -105,19 +116,6 @@ func (app *App) setupTaskRunner() (*setup.Runner, error) {
 	runner.ConsoleWriter = app.consoleWriter()
 	runner.ErrorWriter = app.errorWriter()
 
-	runner.AddTask("server", "", &setup.ServerSetup{
-		SvrConfigPtr: &app.Config.Server,
-		ServerConfig: commConfig.ServerConfig{
-			Port:              viper.GetInt("server-port"),
-			ReadTimeout:       viper.GetDuration("server-read-timeout"),
-			ReadHeaderTimeout: viper.GetDuration("server-read-header-timeout"),
-			WriteTimeout:      viper.GetDuration("server-write-timeout"),
-			IdleTimeout:       viper.GetDuration("server-idle-timeout"),
-			MaxHeaderBytes:    viper.GetInt("server-max-header-bytes"),
-		},
-		ConsoleWriter: app.consoleWriter(),
-		DefaultPort:   constants.DefaultKBSListenerPort,
-	})
 	runner.AddTask("download-ca-cert", "", &setup.DownloadCMSCert{
 		CaCertDirPath: constants.TrustedCaCertsDir,
 		ConsoleWriter: app.consoleWriter(),
@@ -143,7 +141,24 @@ func (app *App) setupTaskRunner() (*setup.Runner, error) {
 		DefaultTransferPolicyFile: constants.DefaultTransferPolicyFile,
 		ConsoleWriter:             app.consoleWriter(),
 	})
-
+	runner.AddTask("update-service-config", "", &tasks.UpdateServiceConfig{
+		ConsoleWriter: app.consoleWriter(),
+		ServiceConfig: config.KBSConfig{
+			UserName: viper.GetString("kbs-service-username"),
+			Password: viper.GetString("kbs-service-password"),
+		},
+		AASApiUrl: viper.GetString("aas-base-url"),
+		ServerConfig: commConfig.ServerConfig{
+			Port:              viper.GetInt("server-port"),
+			ReadTimeout:       viper.GetDuration("server-read-timeout"),
+			ReadHeaderTimeout: viper.GetDuration("server-read-header-timeout"),
+			WriteTimeout:      viper.GetDuration("server-write-timeout"),
+			IdleTimeout:       viper.GetDuration("server-idle-timeout"),
+			MaxHeaderBytes:    viper.GetInt("server-max-header-bytes"),
+		},
+		DefaultPort: constants.DefaultKBSListenerPort,
+		AppConfig:   &app.Config,
+	})
 	return runner, nil
 }
 

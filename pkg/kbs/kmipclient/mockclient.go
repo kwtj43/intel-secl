@@ -19,8 +19,8 @@ func NewMockKmipClient() *MockKmipClient {
 }
 
 // InitializeClient mocks base method
-func (m *MockKmipClient) InitializeClient(serverIP, serverPort, clientKey, clientCert, rootCert string) error {
-	args := m.Called(serverIP, serverPort, clientKey, clientCert, rootCert)
+func (m *MockKmipClient) InitializeClient(version, serverIP, serverPort, clientKey, clientCert, rootCert string) error {
+	args := m.Called(version, serverIP, serverPort, clientKey, clientCert, rootCert)
 	return args.Error(0)
 }
 
@@ -31,13 +31,13 @@ func (m *MockKmipClient) CreateSymmetricKey(alg, length int) (string, error) {
 }
 
 // DeleteSymmetricKey mocks base method
-func (m *MockKmipClient) DeleteSymmetricKey(id string) error {
+func (m *MockKmipClient) DeleteKey(id string) error {
 	args := m.Called(id)
 	return args.Error(0)
 }
 
 // GetSymmetricKey mocks base method
-func (m *MockKmipClient) GetSymmetricKey(id string) ([]byte, error) {
+func (m *MockKmipClient) GetKey(id string, algorithm string, keyLength int) ([]byte, error) {
 	args := m.Called(id)
 	return args.Get(0).([]byte), args.Error(1)
 }

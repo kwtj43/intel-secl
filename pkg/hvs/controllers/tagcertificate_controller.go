@@ -115,7 +115,7 @@ func (controller TagCertificateController) Create(w http.ResponseWriter, r *http
 	// validate Tag Certificate creation params
 	if err := validateTagCertCreateCriteria(reqTCCriteria); err != nil {
 		secLog.WithError(err).Warnf("controllers/tagcertificate_controller:Create() %s : Error during Tag Certificate creation", commLogMsg.InvalidInputBadParam)
-		return nil, http.StatusBadRequest, &commErr.ResourceError{Message: "Error during Tag Certificate creation"}
+		return nil, http.StatusBadRequest, &commErr.ResourceError{Message: "Error during Tag Certificate creation - " + err.Error()}
 	}
 
 	// get the Tag CA Cert from the certstore
@@ -258,6 +258,15 @@ func validateTagCertCreateCriteria(tcCreateCriteria models.TagCertificateCreateC
 	// if Selection content is empty
 	if tcCreateCriteria.SelectionContent == nil {
 		return errors.New("Tag Selection Content must be specified")
+	}
+
+	for _, tagAttribute := range tcCreateCriteria.SelectionContent {
+		if err := validation.ValidateTextString(tagAttribute.Key); err != nil {
+			return errors.New("Valid contents for Key must be specified")
+		}
+		if err := validation.ValidateTextString(tagAttribute.Value); err != nil {
+			return errors.New("Valid contents for Value must be specified")
+		}
 	}
 
 	return nil
@@ -420,8 +429,7 @@ func (controller TagCertificateController) Deploy(w http.ResponseWriter, r *http
 	// lookup Host by Host HardwareUUID
 	defaultLog.WithField("HardwareUUID", tc.HardwareUUID).Debug("controllers/tagcertificate_controller:Deploy() Looking up Host")
 	hosts, err := controller.HostStore.Search(&models.HostFilterCriteria{
-		HostHardwareId: tc.HardwareUUID,
-	})
+		HostHardwareId: tc.HardwareUUID}, nil)
 
 	// handle zero records returned
 	if len(hosts) == 0 || err != nil {
@@ -453,7 +461,7 @@ func (controller TagCertificateController) Deploy(w http.ResponseWriter, r *http
 	}
 
 	// get Host Manifest
-	hmanifest, err := hc.GetHostManifest()
+	hmanifest, err := hc.GetHostManifest(nil)
 	if err != nil {
 		defaultLog.WithField("id", dtcReq.CertID).Error("controllers/tagcertificate_controller:Deploy() Failed "+
 			"to get the HostManifest from Host %s", targetHost.HardwareUuid.String())

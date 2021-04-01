@@ -27,7 +27,7 @@ func (store *MockHostStore) Create(host *hvs.Host) (*hvs.Host, error) {
 }
 
 // Retrieve returns Host
-func (store *MockHostStore) Retrieve(id uuid.UUID) (*hvs.Host, error) {
+func (store *MockHostStore) Retrieve(id uuid.UUID, criteria *models.HostInfoFetchCriteria) (*hvs.Host, error) {
 	for _, h := range store.hostStore {
 		if h.Id == id {
 			return h, nil
@@ -69,14 +69,14 @@ func (store *MockHostStore) DeleteByHostName(hostName string) error {
 }
 
 // Search returns a collection of Hosts filtered as per HostFilterCriteria
-func (store *MockHostStore) Search(criteria *models.HostFilterCriteria) ([]*hvs.Host, error) {
+func (store *MockHostStore) Search(criteria *models.HostFilterCriteria, hostInfoFetchCriteria *models.HostInfoFetchCriteria) ([]*hvs.Host, error) {
 	if criteria == nil || reflect.DeepEqual(*criteria, models.HostFilterCriteria{}) {
 		return store.hostStore, nil
 	}
 
 	var hosts []*hvs.Host
 	if criteria.Id != uuid.Nil {
-		h, _ := store.Retrieve(criteria.Id)
+		h, _ := store.Retrieve(criteria.Id, hostInfoFetchCriteria)
 		if h != nil {
 			hosts = append(hosts, h)
 		}

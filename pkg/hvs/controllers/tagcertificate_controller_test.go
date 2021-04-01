@@ -625,7 +625,7 @@ var _ = Describe("TagCertificateController", func() {
 		Context("Deploy valid TagCertificate to a connected Linux host", func() {
 			It("Should deploy a TagCertificate to the connected host", func() {
 				// we inject the MockTAClient into the controller
-				aasBaseURL := "/aas"
+				aasBaseURL := "/aas/v1"
 				config.Global().AASApiUrl = aasBaseURL
 
 				hostUrl := "intel:https://fakehost;u=fakeuser;p=fakepass"

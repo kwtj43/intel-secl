@@ -10,6 +10,7 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"fmt"
+	"github.com/golang/groupcache/lru"
 	"github.com/intel-secl/intel-secl/v3/pkg/hvs/services/vcss"
 	"net/http"
 	"os"
@@ -181,7 +182,7 @@ func initHostControllerConfig(cfg *config.Configuration, certStore *models.Certi
 }
 
 func getDecodedDek(cfg *config.Configuration) []byte {
-	dekBase64 := cfg.HVS.Dek
+	dekBase64 := cfg.Dek
 	if dekBase64 == "" {
 		defaultLog.Warn("Data encryption key is not defined")
 	}
@@ -233,6 +234,7 @@ func initHostTrustManager(cfg *config.Configuration, dataStore *postgres.DataSto
 		Certificate:       &samlCert.Certificates[0],
 	}
 
+	hostQuoteTrustCache := lru.New(cfg.FVS.HostTrustCacheThreshold)
 	htv := domain.HostTrustVerifierConfig{
 		FlavorStore:                     fs,
 		FlavorGroupStore:                fgs,
@@ -242,6 +244,7 @@ func initHostTrustManager(cfg *config.Configuration, dataStore *postgres.DataSto
 		CertsStore:                      *certStore,
 		SamlIssuerConfig:                samlIssuerConfig,
 		SkipFlavorSignatureVerification: cfg.FVS.SkipFlavorSignatureVerification,
+		HostTrustCache:                  hostQuoteTrustCache,
 	}
 
 	// Initialize Host Fetcher service
@@ -257,6 +260,7 @@ func initHostTrustManager(cfg *config.Configuration, dataStore *postgres.DataSto
 		RetryTimeMinutes: 5,
 		HostStatusStore:  hss,
 		HostStore:        hs,
+		HostTrustCache:   hostQuoteTrustCache,
 	}
 	_, hf, err := hostfetcher.NewService(c, cfg.FVS.NumberOfDataFetchers)
 	if err != nil {

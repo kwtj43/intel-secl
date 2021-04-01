@@ -18,3 +18,8 @@ type ServerConfig struct {
 	IdleTimeout       time.Duration `yaml:"idle-timeout" mapstructure:"idle-timeout"`
 	MaxHeaderBytes    int           `yaml:"max-header-bytes" mapstructure:"max-header-bytes"`
 }
+
+type ServiceConfig struct {
+	Username string `yaml:"service-username" mapstructure:"service-username"`
+	Password string `yaml:"service-password" mapstructure:"service-password"`
+}

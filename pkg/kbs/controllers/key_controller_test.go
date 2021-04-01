@@ -57,6 +57,16 @@ var _ = Describe("KeyController", func() {
 		Bytes: pubKeyBytes,
 	}
 	validEnvelopeKey := pem.EncodeToMemory(publicKeyInPem)
+
+	keyPair15360, _ := rsa.GenerateKey(rand.Reader, 15360)
+	publicKey15360 := &keyPair15360.PublicKey
+	pubKeyBytes15360, _ := x509.MarshalPKIXPublicKey(publicKey15360)
+	var publicKeyInPem15360 = &pem.Block{
+		Type:  "PUBLIC KEY",
+		Bytes: pubKeyBytes15360,
+	}
+	validEnvelopeKey15360 := pem.EncodeToMemory(publicKeyInPem15360)
+
 	invalidEnvelopeKey := strings.Replace(strings.Replace(string(validEnvelopeKey), "-----BEGIN PUBLIC KEY-----\n", "", 1), "-----END PUBLIC KEY-----", "", 1)
 	validSamlReport, _ := ioutil.ReadFile(validSamlReportPath)
 	invalidSamlReport, _ := ioutil.ReadFile(invalidSamlReportPath)
@@ -279,6 +289,7 @@ var _ = Describe("KeyController", func() {
 				keyJson := `{
 								"key_information": {
 									"algorithm": "AES",
+									"key_length": 256,
 									"key_string": "oyGHF9EkKCp44KKADUhR/cNeSB8NJE7kazhNX/x5eio="
 								}
 							}`
@@ -309,6 +320,7 @@ var _ = Describe("KeyController", func() {
 				keyJson := `{
 								"key_information": {
 									"algorithm": "AES",
+									"key_length": 256,
 									"key_string": "k@y"
 								}
 							}`
@@ -331,13 +343,31 @@ var _ = Describe("KeyController", func() {
 	// Specs for HTTP Post to "/keys/{id}/transfer"
 	Describe("Transfer using public key", func() {
 		Context("Provide a valid public key", func() {
-			It("Should transfer an existing Key", func() {
+			It("Should transfer an existing symmetric Key", func() {
 				router.Handle("/keys/{id}/transfer", kbsRoutes.ErrorHandler(kbsRoutes.JsonResponseHandler(keyController.Transfer))).Methods("POST")
 				envelopeKey := string(validEnvelopeKey)
 
 				req, err := http.NewRequest(
 					"POST",
 					"/keys/ee37c360-7eae-4250-a677-6ee12adce8e2/transfer",
+					strings.NewReader(envelopeKey),
+				)
+				req.Header.Set("Accept", consts.HTTPMediaTypeJson)
+				req.Header.Set("Content-Type", consts.HTTPMediaTypePlain)
+				Expect(err).NotTo(HaveOccurred())
+				w = httptest.NewRecorder()
+				router.ServeHTTP(w, req)
+				Expect(w.Code).To(Equal(http.StatusOK))
+			})
+		})
+		Context("Provide a valid public key", func() {
+			It("Should transfer an existing Private Key", func() {
+				router.Handle("/keys/{id}/transfer", kbsRoutes.ErrorHandler(kbsRoutes.JsonResponseHandler(keyController.Transfer))).Methods("POST")
+				envelopeKey := string(validEnvelopeKey15360)
+
+				req, err := http.NewRequest(
+					"POST",
+					"/keys/87d59b82-33b7-47e7-8fcb-6f7f12c82719/transfer",
 					strings.NewReader(envelopeKey),
 				)
 				req.Header.Set("Accept", consts.HTTPMediaTypeJson)
@@ -544,8 +574,8 @@ var _ = Describe("KeyController", func() {
 
 				var keyResponses []kbs.KeyResponse
 				json.Unmarshal(w.Body.Bytes(), &keyResponses)
-				// Verifying mocked data of 2 keys
-				Expect(len(keyResponses)).To(Equal(2))
+				// Verifying mocked data of 3 keys
+				Expect(len(keyResponses)).To(Equal(3))
 			})
 		})
 		Context("Get all the Keys with unknown query parameter", func() {
@@ -652,8 +682,8 @@ var _ = Describe("KeyController", func() {
 
 				var keyResponses []kbs.KeyResponse
 				json.Unmarshal(w.Body.Bytes(), &keyResponses)
-				// Verifying mocked data of 2 keys
-				Expect(len(keyResponses)).To(Equal(2))
+				// Verifying mocked data of 3 keys
+				Expect(len(keyResponses)).To(Equal(3))
 			})
 		})
 		Context("Get all the Keys with invalid transferPolicyId param", func() {

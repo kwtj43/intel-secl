@@ -17,6 +17,7 @@ import (
 
 type QuoteData struct {
 	QuoteBlob string `json:"quote"`
+	UserData  string `json:"userData"`
 }
 
 // SessionCreateSwk - Function to create swk
@@ -36,11 +37,11 @@ func SessionCreateSwk() ([]byte, error) {
 }
 
 // SessionWrapSwkWithRSAKey - Function to wrap the swk key with rsa key
-func SessionWrapSwkWithRSAKey(challengeType string, publicKey string, swk []byte) ([]byte, error) {
+func SessionWrapSwkWithRSAKey(challengeType string, publicKey []byte, swk []byte) ([]byte, error) {
 	defaultLog.Trace("session/session_management:SessionWrapSwkWithRSAKey() Entering")
 	defer defaultLog.Trace("session/session_management:SessionWrapSwkWithRSAKey() Leaving")
 
-	rsaPubKey, err := crypt.GetPublicKeyFromPem([]byte(publicKey))
+	rsaPubKey, err := crypt.GetPublicKeyFromPem(publicKey)
 	if err != nil {
 		secLog.WithError(err).Errorf("session/session_management:SessionWrapSwkWithRSAKey() %s : Public key decode failed", commLogMsg.InvalidInputBadParam)
 		return nil, errors.Wrap(err, "Failed to decode public key")

@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"time"
 
+	"github.com/golang/groupcache/lru"
 	"github.com/google/uuid"
 	"github.com/intel-secl/intel-secl/v3/pkg/hvs/domain"
 	"github.com/intel-secl/intel-secl/v3/pkg/hvs/domain/mocks"
@@ -67,6 +68,7 @@ func SetupManagerTests() {
 		RetryTimeMinutes: 7,
 		HostStatusStore:  hss,
 		HostStore:        hs,
+		HostTrustCache:   lru.New(5),
 	}
 
 	_, f, _ = hostfetcher.NewService(cfg, 5)
@@ -115,6 +117,7 @@ func SetupManagerTests() {
 		FlavorVerifier:                  flvrVerifier,
 		SamlIssuerConfig:                *getIssuer(),
 		SkipFlavorSignatureVerification: true,
+		HostTrustCache:                  lru.New(5),
 	}
 	v = hosttrust.NewVerifier(htv)
 
@@ -144,7 +147,7 @@ func TestHostTrustManagerNewService(t *testing.T) {
 		HardwareUuid:     &hwUuid,
 	})
 	assert.NoError(t, err)
-	hrec, err := hs.Retrieve(newHost.Id)
+	hrec, err := hs.Retrieve(newHost.Id, nil)
 	fmt.Println(hrec)
 	assert.NoError(t, err)
 
@@ -161,7 +164,7 @@ func TestHostTrustManagerNewService(t *testing.T) {
 
 func TestVerifier_Verify_UntrustedHost(t *testing.T) {
 	SetupManagerTests()
-	report, err := v.Verify(hostId, &hostManifest, false)
+	report, err := v.Verify(hostId, &hostManifest, false, false)
 	assert.NoError(t, err)
 	fmt.Println(report.TrustReport.Trusted)
 	assert.Equal(t, report.TrustReport.Trusted, false)
@@ -181,7 +184,7 @@ func TestHostTrustManagerShutdown(t *testing.T) {
 		HardwareUuid:     &hwUuid,
 	})
 	assert.NoError(t, err)
-	hrec, err := hs.Retrieve(newHost.Id)
+	hrec, err := hs.Retrieve(newHost.Id, nil)
 	fmt.Println(hrec)
 	assert.NoError(t, err)
 

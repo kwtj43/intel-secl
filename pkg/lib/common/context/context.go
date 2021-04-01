@@ -12,25 +12,26 @@ import (
 	types "github.com/intel-secl/intel-secl/v3/pkg/model/aas"
 )
 
-type httpContextKey string
-
-var userRoleKey = httpContextKey("userroles")
-var userPermissionKey = httpContextKey("userpermissions")
+const (
+	UserRoles       = "userroles"
+	UserPermissions = "userpermissions"
+	TokenSubject    = "tokensubject"
+)
 
 func SetUserRoles(r *http.Request, val []types.RoleInfo) *http.Request {
 
-	ctx := context.WithValue(r.Context(), "userroles", val)
+	ctx := context.WithValue(r.Context(), UserRoles, val)
 	return r.WithContext(ctx)
 }
 
 func SetUserPermissions(r *http.Request, val []types.PermissionInfo) *http.Request {
 
-	ctx := context.WithValue(r.Context(), "userpermissions", val)
+	ctx := context.WithValue(r.Context(), UserPermissions, val)
 	return r.WithContext(ctx)
 }
 
 func GetUserRoles(r *http.Request) ([]types.RoleInfo, error) {
-	if rv := r.Context().Value("userroles"); rv != nil {
+	if rv := r.Context().Value(UserRoles); rv != nil {
 		if ur, ok := rv.([]types.RoleInfo); ok {
 			return ur, nil
 		}
@@ -39,10 +40,25 @@ func GetUserRoles(r *http.Request) ([]types.RoleInfo, error) {
 }
 
 func GetUserPermissions(r *http.Request) ([]types.PermissionInfo, error) {
-	if rv := r.Context().Value("userpermissions"); rv != nil {
+	if rv := r.Context().Value(UserPermissions); rv != nil {
 		if ur, ok := rv.([]types.PermissionInfo); ok {
 			return ur, nil
 		}
 	}
 	return nil, fmt.Errorf("could not retrieve user permissions from context")
+}
+
+func SetTokenSubject(r *http.Request, val string) *http.Request {
+
+	ctx := context.WithValue(r.Context(), TokenSubject, val)
+	return r.WithContext(ctx)
+}
+
+func GetTokenSubject(r *http.Request) (string, error) {
+	if rv := r.Context().Value(TokenSubject); rv != nil {
+		if ur, ok := rv.(string); ok {
+			return ur, nil
+		}
+	}
+	return "", fmt.Errorf("could not retrieve token subject from context")
 }

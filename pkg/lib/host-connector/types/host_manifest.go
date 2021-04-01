@@ -18,6 +18,7 @@ type HostManifest struct {
 	PcrManifest           PcrManifest      `json:"pcr_manifest"`
 	BindingKeyCertificate string           `json:"binding_key_certificate,omitempty"`
 	MeasurementXmls       []string         `json:"measurement_xmls,omitempty"`
+	QuoteDigest           string           `json:"quote_digest,omitempty"`
 }
 
 func (hostManifest *HostManifest) GetAIKCertificate() (*x509.Certificate, error) {

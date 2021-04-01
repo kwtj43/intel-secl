@@ -7,9 +7,9 @@ package host_connector
 import (
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
-	"strings"
 
 	client "github.com/intel-secl/intel-secl/v3/pkg/clients/ta"
 	"github.com/intel-secl/intel-secl/v3/pkg/lib/host-connector/types"
@@ -31,7 +31,7 @@ func (ic *IntelConnector) GetHostDetails() (taModel.HostInfo, error) {
 	return hostInfo, err
 }
 
-func (ic *IntelConnector) GetHostManifest() (types.HostManifest, error) {
+func (ic *IntelConnector) GetHostManifest(pcrList []int) (types.HostManifest, error) {
 	log.Trace("intel_host_connector:GetHostManifest() Entering")
 	defer log.Trace("intel_host_connector:GetHostManifest() Leaving")
 
@@ -40,7 +40,8 @@ func (ic *IntelConnector) GetHostManifest() (types.HostManifest, error) {
 		return types.HostManifest{}, errors.Wrap(err, "intel_host_connector:GetHostManifest() Error generating "+
 			"nonce for TPM quote request")
 	}
-	hostManifest, err := ic.GetHostManifestAcceptNonce(nonce)
+
+	hostManifest, err := ic.GetHostManifestAcceptNonce(nonce, pcrList)
 	if err != nil {
 		return types.HostManifest{}, errors.Wrap(err, "intel_host_connector:GetHostManifest() Error creating "+
 			"host manifest")
@@ -50,16 +51,23 @@ func (ic *IntelConnector) GetHostManifest() (types.HostManifest, error) {
 
 //Separate function has been created that accepts nonce to support unit test.
 //Else it would be difficult to mock random nonce.
-func (ic *IntelConnector) GetHostManifestAcceptNonce(nonce string) (types.HostManifest, error) {
-
+func (ic *IntelConnector) GetHostManifestAcceptNonce(nonce string, pcrList []int) (types.HostManifest, error) {
 	log.Trace("intel_host_connector:GetHostManifestAcceptNonce() Entering")
 	defer log.Trace("intel_host_connector:GetHostManifestAcceptNonce() Leaving")
+
 	var verificationNonce string
 	var hostManifest types.HostManifest
 	var pcrBankList []string
 
 	//Hardcoded pcr list here since there is no use case for customized pcr list
-	pcrList := []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23}
+	if pcrList == nil || len(pcrList) == 0 {
+		log.Infof("intel_host_connector:GetHostManifestAcceptNonce() pcrList is empty")
+		pcrList = []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23}
+	}
+
+	//always request sha1/sha256 PCR banks from TA
+	pcrBankList = []string{"SHA1", "SHA256"}
+
 	//check if AIK Certificate is present on host before getting host manifest
 	aikInDER, err := ic.client.GetAIK()
 	if err != nil || len(aikInDER) == 0 {
@@ -72,13 +80,6 @@ func (ic *IntelConnector) GetHostManifestAcceptNonce(nonce string) (types.HostMa
 	if err != nil {
 		return types.HostManifest{}, errors.Wrap(err, "intel_host_connector:GetHostManifestAcceptNonce() Error getting "+
 			"host details from TA")
-	}
-
-	if hostManifest.HostInfo.HardwareFeatures.TPM.Meta.PCRBanks != "" {
-		pcrBankList = strings.Split(hostManifest.HostInfo.HardwareFeatures.TPM.Meta.PCRBanks, "_")
-	} else {
-		//support both pcr banks by default
-		pcrBankList = []string{"SHA1", "SHA256"}
 	}
 
 	tpmQuoteResponse, err := ic.client.GetTPMQuote(nonce, pcrList, pcrBankList)
@@ -127,7 +128,7 @@ func (ic *IntelConnector) GetHostManifestAcceptNonce(nonce string) (types.HostMa
 	}
 	log.Info("intel_host_connector:GetHostManifestAcceptNonce() Verifying quote and retrieving PCR manifest from TPM quote " +
 		"response ...")
-	pcrManifest, err := util.VerifyQuoteAndGetPCRManifest(tpmQuoteResponse.EventLog, verificationNonceInBytes,
+	pcrManifest, pcrsDigest, err := util.VerifyQuoteAndGetPCRManifest(tpmQuoteResponse.EventLog, verificationNonceInBytes,
 		tpmQuoteInBytes, aikCertificate)
 	if err != nil {
 		return types.HostManifest{}, errors.Wrap(err, "intel_host_connector:GetHostManifestAcceptNonce() Error verifying "+
@@ -135,21 +136,33 @@ func (ic *IntelConnector) GetHostManifestAcceptNonce(nonce string) (types.HostMa
 	}
 	log.Info("intel_host_connector:GetHostManifestAcceptNonce() Successfully retrieved PCR manifest from quote")
 
-	bindingKeyBytes, err := ic.client.GetBindingKeyCertificate()
-	if err != nil {
-		log.WithError(err).Debugf("intel_host_connector:GetHostManifestAcceptNonce() Error getting " +
-			"binding key certificate from TA")
+	isWlaInstalled := false
+	for _, component := range hostManifest.HostInfo.InstalledComponents {
+		if component == types.HostComponentWlagent.String() {
+			isWlaInstalled = true
+			break
+		}
 	}
 
-	// The bindingkey certificate may not always be returned by the trust-agent,
-	// it will only be there if workload-agent is installed.
 	bindingKeyCertificateBase64 := ""
-	if bindingKeyBytes != nil && len(bindingKeyBytes) > 0 {
-		if bindingKeyCertificate, _ := pem.Decode(bindingKeyBytes); bindingKeyCertificate == nil {
-			log.Warn("intel_host_connector:GetHostManifestAcceptNonce() - Could not decode Binding key certificate. Unexpected response from client")
-		} else {
-			bindingKeyCertificateBase64 = base64.StdEncoding.EncodeToString(bindingKeyCertificate.Bytes)
+	if isWlaInstalled {
+		bindingKeyBytes, err := ic.client.GetBindingKeyCertificate()
+		if err != nil {
+			return types.HostManifest{}, errors.Wrap(err, "intel_host_connector:GetHostManifestAcceptNonce() "+
+				"Error getting binding key certificate from TA")
 		}
+
+		if bindingKeyBytes == nil || len(bindingKeyBytes) == 0 {
+			return types.HostManifest{}, errors.New("intel_host_connector:GetHostManifestAcceptNonce() " +
+				"Empty Binding Key received")
+		}
+
+		bindingKeyCertificate, _ := pem.Decode(bindingKeyBytes)
+		if bindingKeyCertificate == nil {
+			return types.HostManifest{}, errors.New("intel_host_connector:GetHostManifestAcceptNonce() - " +
+				"Could not decode Binding key certificate. Unexpected response from client")
+		}
+		bindingKeyCertificateBase64 = base64.StdEncoding.EncodeToString(bindingKeyCertificate.Bytes)
 	}
 	aikCertificateBase64 := base64.StdEncoding.EncodeToString(aikPem.Bytes)
 
@@ -158,6 +171,7 @@ func (ic *IntelConnector) GetHostManifestAcceptNonce(nonce string) (types.HostMa
 	hostManifest.AssetTagDigest = tpmQuoteResponse.AssetTag
 	hostManifest.BindingKeyCertificate = bindingKeyCertificateBase64
 	hostManifest.MeasurementXmls = tpmQuoteResponse.TcbMeasurements.TcbMeasurements
+	hostManifest.QuoteDigest = hex.EncodeToString(pcrsDigest) + hostManifest.AssetTagDigest
 
 	hostManifestJson, err := json.Marshal(hostManifest)
 	if err != nil {

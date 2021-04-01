@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SERVICE_USERNAME=hvs
+USER_ID=$(id -u)
 LOG_PATH=/var/log/hvs
 CONFIG_PATH=/etc/hvs
 CERTS_DIR=${CONFIG_PATH}/certs
@@ -18,15 +18,25 @@ if [ ! -f $CONFIG_PATH/.setup_done ]; then
       echo "Cannot create directory: $directory"
       exit 1
     fi
-    chown -R $SERVICE_USERNAME:$SERVICE_USERNAME $directory
+    chown -R $USER_ID:$USER_ID $directory
     chmod 700 $directory
   done
   mv /opt/hvs/EndorsementCA-external.pem $ENDORSEMENTS_CA_DIR/
-  hvs setup all
+  hvs setup all --force
   if [ $? -ne 0 ]; then
     exit 1
   fi
   touch $CONFIG_PATH/.setup_done
+fi
+
+if [ ! -z $SETUP_TASK ]; then
+  IFS=',' read -ra ADDR <<< "$SETUP_TASK"
+  for task in "${ADDR[@]}"; do
+    hvs setup $task --force
+    if [ $? -ne 0 ]; then
+      exit 1
+    fi
+  done
 fi
 
 hvs run

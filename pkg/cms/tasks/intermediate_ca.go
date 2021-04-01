@@ -19,7 +19,7 @@ import (
 	"os"
 )
 
-const intermediateCAEnvHelpPrompt = "Following environment variables are required for intermediate_ca setup:"
+const intermediateCAEnvHelpPrompt = "Following environment variables are required for intermediate-ca setup:"
 
 type IntermediateCa struct {
 	ConsoleWriter io.Writer
@@ -60,7 +60,7 @@ func (ca IntermediateCa) Run() error {
 	defer log.Trace("tasks/intermediate_ca:Run() Leaving")
 
 	fmt.Fprintln(ca.ConsoleWriter, "Running Intermediate CA setup...")
-	fs := flag.NewFlagSet("intermediate_ca", flag.ContinueOnError)
+	fs := flag.NewFlagSet("intermediate-ca", flag.ContinueOnError)
 
 	var interCAType string
 	fs.StringVar(&interCAType, "type", "", "type of intermediary ca")

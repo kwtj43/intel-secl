@@ -1,6 +1,7 @@
-FROM centos:8
+#  Copyright (C) 2021 Intel Corporation
+#  SPDX-License-Identifier: BSD-3-Clause
 
-RUN useradd -u 1001 --comment "Host Verification Service" --home /opt/hvs  --shell /bin/false hvs
+FROM centos:8
 
 COPY cmd/hvs/hvs /usr/bin/hvs
 
@@ -8,6 +9,6 @@ COPY build/linux/hvs/EndorsementCA-external.pem /opt/hvs/EndorsementCA-external.
 
 COPY build/image/entrypoint-hvs.sh /entrypoint.sh
 
-RUN chmod +x /entrypoint.sh
+RUN touch /.container-env && chmod +x /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]

@@ -29,6 +29,9 @@ func init() {
 	viper.SetDefault("log-enable-stdout", true)
 	viper.SetDefault("log-level", constants.DefaultLogLevel)
 
+	// Set default value for kmip version
+	viper.SetDefault("kmip-version", "2.0")
+
 	// Set default values for server
 	viper.SetDefault("server-port", constants.DefaultKBSListenerPort)
 	viper.SetDefault("server-read-timeout", constants.DefaultReadTimeout)
@@ -73,6 +76,7 @@ func defaultConfig() *config.Configuration {
 			MaxHeaderBytes:    viper.GetInt("server-max-header-bytes"),
 		},
 		Kmip: config.KmipConfig{
+			Version:    viper.GetString("kmip-version"),
 			ServerIP:   viper.GetString("kmip-server-ip"),
 			ServerPort: viper.GetString("kmip-server-port"),
 			ClientCert: viper.GetString("kmip-client-cert-path"),
@@ -80,8 +84,9 @@ func defaultConfig() *config.Configuration {
 			RootCert:   viper.GetString("kmip-root-cert-path"),
 		},
 		Skc: config.SKCConfig{
-			StmLabel: viper.GetString("skc-challenge-type"),
-			SQVSUrl:  viper.GetString("sqvs-url"),
+			StmLabel:          viper.GetString("skc-challenge-type"),
+			SQVSUrl:           viper.GetString("sqvs-url"),
+			SessionExpiryTime: viper.GetInt("session-expiry-time"),
 		},
 	}
 }

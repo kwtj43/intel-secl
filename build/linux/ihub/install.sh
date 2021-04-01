@@ -23,11 +23,9 @@ if [ -z $env_file ]; then
     echo No .env file found
     IHUB_NOSETUP="true"
 else
-    echo $env_file
     source $env_file
     env_file_exports=$(cat $env_file | grep -E '^[A-Z0-9_]+\s*=' | cut -d = -f 1)
     if [ -n "$env_file_exports" ]; then eval export $env_file_exports; fi
-
 fi
 
 if [[ $EUID -ne 0 ]]; then
@@ -53,7 +51,7 @@ SAML_CERT_DIR_PATH=$CERTS_PATH/saml
 for directory in $BIN_PATH $LOG_PATH $CONFIG_PATH $CERTS_PATH $CERTDIR_TRUSTEDJWTCAS $SAML_CERT_DIR_PATH; do
     mkdir -p $directory
     if [ $? -ne 0 ]; then
-        echo_failure "Cannot create directory: $directory"
+        echo "Cannot create directory: $directory"
         exit 1
     fi
     chown -R $SERVICE_USERNAME:$SERVICE_USERNAME $directory
@@ -106,11 +104,11 @@ logRotate_install() {
   LOGROTATE_PACKAGES="logrotate"
   if [ "$(whoami)" == "root" ]; then
     auto_install "Log Rotate" "LOGROTATE"
-    if [ $? -ne 0 ]; then echo_failure "Failed to install logrotate"; exit -1; fi
+    if [ $? -ne 0 ]; then echo "Failed to install logrotate"; exit -1; fi
   fi
   logRotate_clear; logRotate_detect;
     if [ -z "$logrotate" ]; then
-      echo_failure "logrotate is not installed"
+      echo "logrotate is not installed"
     else
       echo  "logrotate installed in $logrotate"
     fi
@@ -148,7 +146,7 @@ if [ "${IHUB_NOSETUP,,}" == "true" ]; then
     echo "Run \"$COMPONENT_NAME setup all\" for manual setup"
     echo "Installation completed successfully!"
 else    
-    $COMPONENT_NAME setup all
+    $COMPONENT_NAME setup all --force
     SETUPRESULT=$?
     chown -R $SERVICE_USERNAME:$SERVICE_USERNAME $CONFIG_PATH
     if [ ${SETUPRESULT} == 0 ]; then

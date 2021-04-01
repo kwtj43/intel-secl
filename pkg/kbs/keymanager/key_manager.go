@@ -5,13 +5,15 @@
 package keymanager
 
 import (
+	"strings"
+
 	"github.com/intel-secl/intel-secl/v3/pkg/kbs/config"
 	"github.com/intel-secl/intel-secl/v3/pkg/kbs/constants"
 	"github.com/intel-secl/intel-secl/v3/pkg/kbs/domain/models"
 	"github.com/intel-secl/intel-secl/v3/pkg/kbs/kmipclient"
 	"github.com/intel-secl/intel-secl/v3/pkg/lib/common/log"
 	"github.com/intel-secl/intel-secl/v3/pkg/model/kbs"
-	"strings"
+	"github.com/pkg/errors"
 )
 
 var defaultLog = log.GetDefaultLogger()
@@ -22,9 +24,9 @@ func NewKeyManager(cfg *config.KmipConfig, provider string) (KeyManager, error) 
 
 	if strings.ToLower(provider) == constants.KmipKeyManager {
 		kmipClient := kmipclient.NewKmipClient()
-		err := kmipClient.InitializeClient(cfg.ServerIP, cfg.ServerPort, cfg.ClientCert, cfg.ClientKey, cfg.RootCert)
+		err := kmipClient.InitializeClient(cfg.Version, cfg.ServerIP, cfg.ServerPort, cfg.ClientCert, cfg.ClientKey, cfg.RootCert)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "keymanager/key_manager:NewKeyManager() Failed to initialize client")
 		}
 		return &KmipManager{kmipClient}, nil
 	} else {

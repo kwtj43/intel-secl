@@ -73,7 +73,7 @@ ln -sfT $LIB_PATH/libkmip.so.0.2 $LIB_PATH/libkmip.so
 ln -sfT $LIB_PATH/libkmip.so.0.2 $LIB_PATH/libkmip.so.0
 
 # make log files world readable
-chmod 644 LOG_PATH
+chmod 744 $LOG_PATH
 
 # Install systemd script
 cp $COMPONENT_NAME.service $PRODUCT_HOME && chown $SERVICE_USERNAME:$SERVICE_USERNAME $PRODUCT_HOME/$COMPONENT_NAME.service && chown $SERVICE_USERNAME:$SERVICE_USERNAME $PRODUCT_HOME
@@ -114,11 +114,11 @@ logRotate_install() {
   LOGROTATE_PACKAGES="logrotate"
   if [ "$(whoami)" == "root" ]; then
     auto_install "Log Rotate" "LOGROTATE"
-    if [ $? -ne 0 ]; then echo_failure "Failed to install logrotate"; exit -1; fi
+    if [ $? -ne 0 ]; then echo "Failed to install logrotate"; exit -1; fi
   fi
   logRotate_clear; logRotate_detect;
     if [ -z "$logrotate" ]; then
-      echo_failure "logrotate is not installed"
+      echo "logrotate is not installed"
     else
       echo  "logrotate installed in $logrotate"
     fi
@@ -155,7 +155,7 @@ if [ "${KBS_NOSETUP,,}" == "true" ]; then
     echo "Run \"$COMPONENT_NAME setup all\" for manual setup"
     echo "Installation completed successfully!"
 else
-    $COMPONENT_NAME setup all
+    $COMPONENT_NAME setup all --force
     SETUPRESULT=$?
     chown -R $SERVICE_USERNAME:$SERVICE_USERNAME $CONFIG_PATH
     if [ ${SETUPRESULT} == 0 ]; then

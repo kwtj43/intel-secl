@@ -5,6 +5,8 @@
 package host_connector
 
 import (
+	"crypto"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -12,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/intel-secl/intel-secl/v3/pkg/clients/vmware"
+	"github.com/intel-secl/intel-secl/v3/pkg/lib/common/crypt"
 	"github.com/intel-secl/intel-secl/v3/pkg/lib/flavor/constants"
 	"github.com/intel-secl/intel-secl/v3/pkg/lib/host-connector/types"
 	taModel "github.com/intel-secl/intel-secl/v3/pkg/model/ta"
@@ -53,7 +56,7 @@ func (vc *VmwareConnector) GetHostDetails() (taModel.HostInfo, error) {
 	return hostInfo, nil
 }
 
-func (vc *VmwareConnector) GetHostManifest() (types.HostManifest, error) {
+func (vc *VmwareConnector) GetHostManifest(pcrList []int) (types.HostManifest, error) {
 
 	log.Trace("vmware_host_connector :GetHostManifest() Entering")
 	defer log.Trace("vmware_host_connector :GetHostManifest() Leaving")
@@ -71,7 +74,7 @@ func (vc *VmwareConnector) GetHostManifest() (types.HostManifest, error) {
 		return types.HostManifest{}, errors.New("vmware_host_connector: GetHostManifest() TPM log received from" +
 			"VMware host is not reliable")
 	}
-	pcrManifest, err = createPCRManifest(tpmAttestationReport.Returnval)
+	pcrManifest, pcrsDigest, err := createPCRManifest(tpmAttestationReport.Returnval, pcrList)
 	if err != nil {
 		return types.HostManifest{}, errors.Wrap(err, "vmware_host_connector: GetHostManifest() Error parsing "+
 			"PCR manifest from Host Attestation Report")
@@ -84,6 +87,7 @@ func (vc *VmwareConnector) GetHostManifest() (types.HostManifest, error) {
 			"info from vcenter API")
 	}
 	hostManifest.PcrManifest = pcrManifest
+	hostManifest.QuoteDigest = pcrsDigest
 	return hostManifest, nil
 }
 
@@ -110,7 +114,7 @@ func (vc *VmwareConnector) GetClusterReference(clusterName string) ([]mo.HostSys
 	return hostInfoList, nil
 }
 
-func createPCRManifest(hostTpmAttestationReport *vim25Types.HostTpmAttestationReport) (types.PcrManifest, error) {
+func createPCRManifest(hostTpmAttestationReport *vim25Types.HostTpmAttestationReport, pcrList []int) (types.PcrManifest, string, error) {
 
 	log.Trace("vmware_host_connector :createPCRManifest() Entering")
 	defer log.Trace("vmware_host_connector :createPCRManifest() Leaving")
@@ -119,16 +123,18 @@ func createPCRManifest(hostTpmAttestationReport *vim25Types.HostTpmAttestationRe
 	pcrManifest.Sha256Pcrs = []types.HostManifestPcrs{}
 	pcrManifest.Sha1Pcrs = []types.HostManifestPcrs{}
 	var pcrEventLogMap types.PcrEventLogMap
+	cumulativePcrsValue := ""
 
 	for _, pcrDetails := range hostTpmAttestationReport.TpmPcrValues {
 		pcrIndex, err := types.GetPcrIndexFromString(strconv.Itoa(int(pcrDetails.PcrNumber)))
 		if err != nil {
-			return pcrManifest, err
+			return pcrManifest, "", err
 		}
 		shaAlgorithm, err := types.GetSHAAlgorithm(pcrDetails.DigestMethod)
 		if err != nil {
-			return pcrManifest, err
+			return pcrManifest, "", err
 		}
+
 		if strings.EqualFold(pcrDetails.DigestMethod, "SHA256") {
 			pcrManifest.Sha256Pcrs = append(pcrManifest.Sha256Pcrs, types.HostManifestPcrs{
 				Index:   pcrIndex,
@@ -148,12 +154,19 @@ func createPCRManifest(hostTpmAttestationReport *vim25Types.HostTpmAttestationRe
 	pcrEventLogMap, err := getPcrEventLog(hostTpmAttestationReport.TpmEvents, pcrEventLogMap)
 	if err != nil {
 		log.Errorf("vmware_host_connector:createPCRManifest() Error getting PCR event log : %s", err.Error())
-		return pcrManifest, errors.Wrap(err, "vmware_host_connector:createPCRManifest() Error getting PCR "+
+		return pcrManifest, "", errors.Wrap(err, "vmware_host_connector:createPCRManifest() Error getting PCR "+
 			"event log")
 	}
-
+	//Evaluate digest
+	pcrsDigestBytes, err := crypt.GetHashData([]byte(cumulativePcrsValue), crypto.SHA384)
+	if err != nil {
+		log.Errorf("vmware_host_connector:createPCRManifest() Error evaluating PCRs digest : %s", err.Error())
+		return pcrManifest, "", errors.Wrap(err, "vmware_host_connector:createPCRManifest() Error evaluating "+
+			"PCRs digest")
+	}
+	pcrsDigest := hex.EncodeToString(pcrsDigestBytes)
 	pcrManifest.PcrEventLogMap = pcrEventLogMap
-	return pcrManifest, nil
+	return pcrManifest, pcrsDigest, nil
 }
 
 func getPcrEventLog(hostTpmEventLogEntry []vim25Types.HostTpmEventLogEntry, eventLogMap types.PcrEventLogMap) (types.PcrEventLogMap, error) {

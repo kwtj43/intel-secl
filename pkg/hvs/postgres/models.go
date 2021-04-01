@@ -121,6 +121,7 @@ type (
 		ID          uuid.UUID     `gorm:"column:id" gorm:"primary_key;"`
 		HostID      uuid.UUID     `gorm:"column:host_id;type:uuid REFERENCES host(Id) ON UPDATE CASCADE ON DELETE CASCADE;not null;index:idx_report_host_id"`
 		TrustReport PGTrustReport `gorm:"column:trust_report; not null" sql:"type:JSONB"`
+		Trusted     bool          `gorm:"column:trusted; not null"`
 		CreatedAt   time.Time     `gorm:"column:created;not null"`
 		Expiration  time.Time     `gorm:"column:expiration;not null"`
 		Saml        string        `gorm:"column:saml;not null"`

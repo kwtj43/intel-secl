@@ -17,8 +17,11 @@ type Host struct {
 	Description      string    `json:"description,omitempty"`
 	ConnectionString string    `json:"connection_string"`
 	// swagger:strfmt uuid
-	HardwareUuid     *uuid.UUID `json:"hardware_uuid,omitempty"`
-	FlavorgroupNames []string   `json:"flavorgroup_names,omitempty"`
+	HardwareUuid     *uuid.UUID             `json:"hardware_uuid,omitempty"`
+	FlavorgroupNames []string               `json:"flavorgroup_names,omitempty"`
+	Report           *TrustReport           `json:"report,omitempty"`
+	Trusted          *bool                  `json:"trusted,omitempty"`
+	ConnectionStatus *HostStatusInformation `json:"status,omitempty"`
 }
 
 type HostCreateRequest struct {

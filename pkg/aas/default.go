@@ -26,7 +26,7 @@ func init() {
 	viper.SetDefault("log-level", "info")
 
 	// set default values for server
-	viper.SetDefault("server-port", constants.DefaultHttpPort)
+	viper.SetDefault("server-port", constants.DefaultPort)
 	viper.SetDefault("server-read-timeout", constants.DefaultReadTimeout)
 	viper.SetDefault("server-read-header-timeout", constants.DefaultReadHeaderTimeout)
 	viper.SetDefault("server-write-timeout", constants.DefaultWriteTimeout)

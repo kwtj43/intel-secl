@@ -8,6 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	vsPlugin "github.com/intel-secl/intel-secl/v3/pkg/ihub/attestationPlugin"
 	"github.com/intel-secl/intel-secl/v3/pkg/ihub/config"
 	testutility "github.com/intel-secl/intel-secl/v3/pkg/ihub/test"
+	"github.com/spf13/viper"
 )
 
 func TestDownloadSamlCertValidate(t *testing.T) {
@@ -30,10 +32,6 @@ func TestDownloadSamlCertValidate(t *testing.T) {
 	c1 := testutility.SetupMockK8sConfiguration(t, port)
 	c2 := testutility.SetupMockK8sConfiguration(t, port)
 	c2.AttestationService.AttestationURL = c2.AttestationService.AttestationURL + "/e"
-	err := c2.SaveConfiguration(c2.ConfigFile)
-	if err != nil {
-		t.Log("tasks/download_saml_cert_test:TestDownloadSamlCertValidate() : Unable to persist configuration", err)
-	}
 
 	temp, err := ioutil.TempFile("", "samlCert.pem")
 	if err != nil {
@@ -53,15 +51,17 @@ func TestDownloadSamlCertValidate(t *testing.T) {
 		{
 			name: "download-saml-cert-validate valid test",
 			d: DownloadSamlCert{
-				Config:       c1,
-				SamlCertPath: temp.Name(),
+				AttestationConfig: &c1.AttestationService,
+				SamlCertPath:      temp.Name(),
+				ConsoleWriter:     os.Stdout,
 			},
 			wantErr: false,
 		}, {
 			name: "download-saml-cert-validate negative test",
 			d: DownloadSamlCert{
-				Config:       c2,
-				SamlCertPath: "",
+				AttestationConfig: &c2.AttestationService,
+				SamlCertPath:      "",
+				ConsoleWriter:     os.Stdout,
 			},
 			wantErr: true,
 		},
@@ -84,6 +84,8 @@ func TestDownloadSamlCertRun(t *testing.T) {
 		}
 	}()
 	time.Sleep(1 * time.Second)
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+	viper.AutomaticEnv()
 
 	tempSamlFile, err := ioutil.TempFile("", "samlCert.pem")
 	if err != nil {
@@ -100,28 +102,21 @@ func TestDownloadSamlCertRun(t *testing.T) {
 		}
 	}()
 	tests := []struct {
-		name    string
-		d       DownloadSamlCert
-		wantErr bool
+		name      string
+		d         DownloadSamlCert
+		EnvValues map[string]string
+		wantErr   bool
 	}{
 		{
 			name: "download-saml-cert-run valid test",
 			d: DownloadSamlCert{
-				Config: &config.Configuration{
-					AAS: config.AASConfig{
-						URL: "http://localhost" + port + "/aas",
-					},
-					IHUB: config.IHUBConfig{
-						Username: "admin@ihub",
-						Password: "hubAdminPass",
-					},
-
-					AttestationService: config.AttestationConfig{
-						AttestationType: "HVS",
-						AttestationURL:  "http://localhost" + port + "/mtwilson/v2",
-					},
-				},
-				SamlCertPath: tempSamlFile.Name(),
+				AttestationConfig: &config.AttestationConfig{},
+				SamlCertPath:      tempSamlFile.Name(),
+				ConsoleWriter:     os.Stdout,
+			},
+			EnvValues: map[string]string{
+				"ATTESTATION_TYPE":        "HVS",
+				"ATTESTATION_SERVICE_URL": "http://localhost" + port + "/mtwilson/v2/",
 			},
 			wantErr: false,
 		},
@@ -129,20 +124,13 @@ func TestDownloadSamlCertRun(t *testing.T) {
 		{
 			name: "download-saml-cert-run negative test",
 			d: DownloadSamlCert{
-				Config: &config.Configuration{
-					AAS: config.AASConfig{
-						URL: "http://localhost" + port + "/aas",
-					},
-					IHUB: config.IHUBConfig{
-						Username: "admin@ihub",
-						Password: "hubAdminPass",
-					},
-					AttestationService: config.AttestationConfig{
-						AttestationType: "HVS",
-						AttestationURL:  "http://localhost" + port + "/mtwilson/v2",
-					},
-				},
-				SamlCertPath: "",
+				AttestationConfig: &config.AttestationConfig{},
+				SamlCertPath:      "",
+				ConsoleWriter:     os.Stdout,
+			},
+			EnvValues: map[string]string{
+				"ATTESTATION_TYPE":        "HVS",
+				"ATTESTATION_SERVICE_URL": "http://localhost" + port + "/mtwilson/v2/",
 			},
 			wantErr: true,
 		},
@@ -150,6 +138,16 @@ func TestDownloadSamlCertRun(t *testing.T) {
 	for _, tt := range tests {
 		vsPlugin.VsClient = &vs.Client{}
 		t.Run(tt.name, func(t *testing.T) {
+			for key := range tt.EnvValues {
+				os.Unsetenv(key)
+				os.Setenv(key, tt.EnvValues[key])
+				defer func() {
+					derr := os.Unsetenv(key)
+					if derr != nil {
+						t.Errorf("Error unseting ENV :%v", derr)
+					}
+				}()
+			}
 
 			if err := tt.d.Run(); (err != nil) != tt.wantErr {
 				t.Errorf("tasks/download_saml_cert_test:TestDownloadSamlCertRun() error = %v, wantErr %v", err, tt.wantErr)

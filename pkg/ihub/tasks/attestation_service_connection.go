@@ -7,8 +7,10 @@ package tasks
 import (
 	"fmt"
 	"io"
+	"net/url"
 
-	vsPlugin "github.com/intel-secl/intel-secl/v3/pkg/ihub/attestationPlugin"
+	"github.com/intel-secl/intel-secl/v3/pkg/clients/skchvsclient"
+	"github.com/intel-secl/intel-secl/v3/pkg/clients/vs"
 	"github.com/intel-secl/intel-secl/v3/pkg/ihub/config"
 	"github.com/intel-secl/intel-secl/v3/pkg/ihub/constants"
 	"github.com/intel-secl/intel-secl/v3/pkg/lib/common/setup"
@@ -19,8 +21,6 @@ import (
 
 // AttestationServiceConnection is a setup task for setting up the connection to the Host Verification Service (Attestation Service)
 type AttestationServiceConnection struct {
-	AASConfig         *config.AASConfig
-	IHUBConfig        *config.IHUBConfig
 	AttestationConfig *config.AttestationConfig
 	ConsoleWriter     io.Writer
 }
@@ -29,23 +29,8 @@ type AttestationServiceConnection struct {
 func (attestationService AttestationServiceConnection) Run() error {
 	fmt.Fprintln(attestationService.ConsoleWriter, "Setting up Attestation Service Connection...")
 
-	aasURL := viper.GetString("aas-api-url")
-	serviceUsername := viper.GetString("ihub-service-username")
-	servicePassword := viper.GetString("ihub-service-password")
 	attestationType := viper.GetString("attestation-type")
 	attestationURL := viper.GetString("attestation-service-url")
-
-	if aasURL == "" {
-		return errors.New("tasks/attestation_service_connection:Run() Missing AAS_API_URL")
-	}
-
-	if serviceUsername == "" {
-		return errors.New("tasks/attestation_service_connection:Run() Missing ihub service username")
-	}
-
-	if servicePassword == "" {
-		return errors.New("tasks/attestation_service_connection:Run() Missing ihub service user password")
-	}
 
 	if attestationURL == "" {
 		return errors.New("tasks/attestation_service_connection:Run() Missing attestation service endpoint url in environment")
@@ -56,9 +41,6 @@ func (attestationService AttestationServiceConnection) Run() error {
 		fmt.Fprintln(attestationService.ConsoleWriter, "Attestation type is not defined in environment, default attestation type set")
 	}
 
-	attestationService.AASConfig.URL = aasURL
-	attestationService.IHUBConfig.Username = serviceUsername
-	attestationService.IHUBConfig.Password = servicePassword
 	attestationService.AttestationConfig.AttestationType = attestationType
 	attestationService.AttestationConfig.AttestationURL = attestationURL
 
@@ -82,19 +64,26 @@ func (attestationService AttestationServiceConnection) Validate() error {
 //validateService Validates the attestation service connection is successful or not by hitting the service url's
 func (attestationService AttestationServiceConnection) validateService() error {
 
-	conf := config.Configuration{
-		AAS:                *attestationService.AASConfig,
-		AttestationService: *attestationService.AttestationConfig,
-		IHUB:               *attestationService.IHUBConfig,
-	}
-
 	if attestationService.AttestationConfig.AttestationType == "HVS" {
-		_, err := vsPlugin.GetCaCerts("saml", &conf, "")
+		baseURL, err := url.Parse(attestationService.AttestationConfig.AttestationURL)
+		if err != nil {
+			return errors.Wrap(err, "tasks/attestation_service_connection:validateService() Error in parsing attestation service URL")
+		}
+
+		vsClient := &vs.Client{
+			BaseURL: baseURL,
+		}
+
+		_, err = vsClient.GetCaCerts("saml")
 		if err != nil {
 			return errors.Wrap(err, "tasks/attestation_service_connection:validateService() Error while getting response from attestation service")
 		}
+
 	} else if attestationService.AttestationConfig.AttestationType == "SGX" {
-		_, err := vsPlugin.GetSHVSVersion(&conf, "")
+		versionURL := attestationService.AttestationConfig.AttestationURL + "/" + "version"
+		shvsClient := &skchvsclient.Client{}
+
+		_, err := shvsClient.GetSHVSVersion(versionURL)
 		if err != nil {
 			return errors.Wrap(err, "tasks/attestation_service_connection:validateService() Error while getting response from SGX attestation service")
 		}
@@ -109,8 +98,8 @@ func (attestationService AttestationServiceConnection) validateService() error {
 //PrintHelp Prints the help message
 func (attestationService AttestationServiceConnection) PrintHelp(w io.Writer) {
 	var envHelp = map[string]string{
-		"ATTESTATION_TYPE": "Type of Attestation Service",
-		"ATTESTATION_URL":  "Base URL for the Attestation Service",
+		"ATTESTATION_TYPE":        "Type of Attestation Service",
+		"ATTESTATION_SERVICE_URL": "Base URL for the Attestation Service",
 	}
 	setup.PrintEnvHelp(w, "Following environment variables are required for attestation-service-connection setup:", "", envHelp)
 	fmt.Fprintln(w, "")

@@ -43,7 +43,7 @@ func TestKmipManager_DeleteKey(t *testing.T) {
 	}
 
 	mockClient := kmipclient.NewMockKmipClient()
-	mockClient.On("DeleteSymmetricKey", mock.Anything).Return(nil)
+	mockClient.On("DeleteKey", mock.Anything).Return(nil)
 
 	keyManager := &KmipManager{mockClient}
 
@@ -81,7 +81,7 @@ func TestKmipManager_TransferKey(t *testing.T) {
 	}
 
 	mockClient := kmipclient.NewMockKmipClient()
-	mockClient.On("GetSymmetricKey", mock.Anything).Return([]byte(""), nil)
+	mockClient.On("GetKey", mock.Anything).Return([]byte(""), nil)
 
 	keyManager := &KmipManager{mockClient}
 

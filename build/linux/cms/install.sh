@@ -18,9 +18,7 @@ fi
 
 if [ -z $env_file ]; then
     echo "No .env file found"
-    if [[ -n $CMS_NOSETUP && $CMS_NOSETUP != "true" ]]; then
-        CMS_NOSETUP="false"
-    fi
+    CMS_NOSETUP="true"
 else
     source $env_file
     env_file_exports=$(cat $env_file | grep -E '^[A-Z0-9_]+\s*=' | cut -d = -f 1)
@@ -92,7 +90,6 @@ then
 fi
 }
 
-
 # SCRIPT EXECUTION
 logRotate_clear() {
   logrotate=""
@@ -110,11 +107,11 @@ logRotate_install() {
   LOGROTATE_PACKAGES="logrotate"
   if [ "$(whoami)" == "root" ]; then
     auto_install "Log Rotate" "LOGROTATE"
-    if [ $? -ne 0 ]; then echo_failure "Failed to install logrotate"; exit -1; fi
+    if [ $? -ne 0 ]; then echo "Failed to install logrotate"; exit -1; fi
   fi
   logRotate_clear; logRotate_detect;
     if [ -z "$logrotate" ]; then
-      echo_failure "logrotate is not installed"
+      echo "logrotate is not installed"
     else
       echo  "logrotate installed in $logrotate"
     fi
@@ -151,7 +148,7 @@ if [ "${CMS_NOSETUP,,}" == "true" ]; then
     echo "Run command \"cms setup all\" and start server"
     echo "Installation completed successfully!"
 else 
-    $COMPONENT_NAME setup all -f $env_file
+    $COMPONENT_NAME setup all -f $env_file --force
     SETUPRESULT=$?
     chown -R cms:cms /etc/cms/
     if [ ${SETUPRESULT} == 0 ]; then 

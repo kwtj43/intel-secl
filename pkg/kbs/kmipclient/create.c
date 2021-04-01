@@ -23,10 +23,12 @@ extern FILE *log_fp;
 *
 * @alg_length: length of the key to be created
 */
-const char* kmipw_create(int alg_id, int alg_length) {
-    char* key_uuid = NULL;
+const char *kmipw_create(int alg_id, int alg_length, int kmip_version)
+{
+    char *key_uuid = NULL;
     log_fp = configure_logger();
-    if (log_fp == NULL) {
+    if (log_fp == NULL)
+    {
         printf("Failed to configure logger\n");
         return NULL;
     }
@@ -35,7 +37,7 @@ const char* kmipw_create(int alg_id, int alg_length) {
     SSL_CTX *ctx = NULL;
     BIO *bio = NULL;
     bio = initialize_tls_connection(ctx);
-    if(bio == NULL)
+    if (bio == NULL)
     {
         log_error("BIO_new_ssl_connect failed.");
         ERR_print_errors_fp(log_fp);
@@ -44,14 +46,15 @@ const char* kmipw_create(int alg_id, int alg_length) {
     }
     /* Set up the KMIP context and the initial encoding buffer. */
     KMIP kmip_ctx = {0};
-    kmip_init(&kmip_ctx, NULL, 0, KMIP_2_0);
-    
+  
+    kmip_init(&kmip_ctx, NULL, 0, kmip_version);
+
     size_t buffer_blocks = 1;
     size_t buffer_block_size = 1024;
     size_t buffer_total_size = buffer_blocks * buffer_block_size;
-    
+
     uint8 *encoding = kmip_ctx.calloc_func(kmip_ctx.state, buffer_blocks, buffer_block_size);
-    if(encoding == NULL)
+    if (encoding == NULL)
     {
         kmip_destroy(&kmip_ctx);
         BIO_free_all(bio);
@@ -62,13 +65,13 @@ const char* kmipw_create(int alg_id, int alg_length) {
     kmip_set_buffer(&kmip_ctx, encoding, buffer_total_size);
     /* Build the request message. */
     Attribute a[3] = {0};
-    for(int i = 0; i < 3; i++)
+    for (int i = 0; i < 3; i++)
         kmip_init_attribute(&a[i]);
-    
+
     enum cryptographic_algorithm algorithm = alg_id;
     a[0].type = KMIP_ATTR_CRYPTOGRAPHIC_ALGORITHM;
     a[0].value = &algorithm;
-    
+
     int32 length = alg_length;
     a[1].type = KMIP_ATTR_CRYPTOGRAPHIC_LENGTH;
     a[1].value = &length;
@@ -76,53 +79,64 @@ const char* kmipw_create(int alg_id, int alg_length) {
     int32 mask = KMIP_CRYPTOMASK_ENCRYPT | KMIP_CRYPTOMASK_DECRYPT;
     a[2].type = KMIP_ATTR_CRYPTOGRAPHIC_USAGE_MASK;
     a[2].value = &mask;
-    LinkedList *list = kmip_ctx.calloc_func(kmip_ctx.state, 1, sizeof(LinkedList));
-    if(list != NULL)
-    {
-        LinkedListItem *item0 = kmip_ctx.calloc_func(kmip_ctx.state, 1, sizeof(LinkedListItem));
-        if(item0 != NULL)
-        {
-    	    item0->data = &a[0];
-	        kmip_linked_list_push(list, item0);
-        }
-    
-        LinkedListItem *item1 = kmip_ctx.calloc_func(kmip_ctx.state, 1, sizeof(LinkedListItem));
-        if(item1 != NULL)
-        {
-    	    item1->data = &a[1];
-	        kmip_linked_list_push(list, item1);
-        }
-    
-        LinkedListItem *item2 = kmip_ctx.calloc_func(kmip_ctx.state, 1, sizeof(LinkedListItem));
-        if(item2 != NULL)
-        {
-    	    item2->data = &a[2];
-	        kmip_linked_list_push(list, item2);
-        }
-    }
 
+    TemplateAttribute ta = {0};
     Attributes attrs = {0};
-    attrs.attribute_list = list;
+
     ProtocolVersion pv = {0};
     kmip_init_protocol_version(&pv, kmip_ctx.version);
-    
+
     RequestHeader rh = {0};
     kmip_init_request_header(&rh);
-    
+
     rh.protocol_version = &pv;
     rh.maximum_response_size = kmip_ctx.max_message_size;
     rh.time_stamp = time(NULL);
     rh.batch_count = 1;
-    
+
     CreateRequestPayload crp = {0};
     crp.object_type = KMIP_OBJTYPE_SYMMETRIC_KEY;
-    crp.attributes = &attrs;
+    if (kmip_version == KMIP_2_0)
+    {
+        LinkedList *list = kmip_ctx.calloc_func(kmip_ctx.state, 1, sizeof(LinkedList));
+        if (list != NULL)
+        {
+            LinkedListItem *item0 = kmip_ctx.calloc_func(kmip_ctx.state, 1, sizeof(LinkedListItem));
+            if (item0 != NULL)
+            {
+                item0->data = &a[0];
+                kmip_linked_list_push(list, item0);
+            }
+
+            LinkedListItem *item1 = kmip_ctx.calloc_func(kmip_ctx.state, 1, sizeof(LinkedListItem));
+            if (item1 != NULL)
+            {
+                item1->data = &a[1];
+                kmip_linked_list_push(list, item1);
+            }
+
+            LinkedListItem *item2 = kmip_ctx.calloc_func(kmip_ctx.state, 1, sizeof(LinkedListItem));
+            if (item2 != NULL)
+            {
+                item2->data = &a[2];
+                kmip_linked_list_push(list, item2);
+            }
+        }
+        attrs.attribute_list = list;
+        crp.attributes = &attrs;
+    }
+    else
+    {
+        ta.attributes = a;
+        ta.attribute_count = ARRAY_LENGTH(a);
+        crp.template_attribute = &ta;
+    }
 
     RequestBatchItem rbi = {0};
     kmip_init_request_batch_item(&rbi);
     rbi.operation = KMIP_OP_CREATE;
     rbi.request_payload = &crp;
-    
+
     RequestMessage rm = {0};
     rm.request_header = &rh;
     rm.batch_items = &rbi;
@@ -131,16 +145,16 @@ const char* kmipw_create(int alg_id, int alg_length) {
     /* if it's not big enough. Once encoding succeeds, send the request   */
     /* message.                                                           */
     int encode_result = kmip_encode_request_message(&kmip_ctx, &rm);
-    while(encode_result == KMIP_ERROR_BUFFER_FULL)
+    while (encode_result == KMIP_ERROR_BUFFER_FULL)
     {
         kmip_reset(&kmip_ctx);
         kmip_ctx.free_func(kmip_ctx.state, encoding);
-        
+
         buffer_blocks += 1;
         buffer_total_size = buffer_blocks * buffer_block_size;
-          
+
         encoding = kmip_ctx.calloc_func(kmip_ctx.state, buffer_blocks, buffer_block_size);
-        if(encoding == NULL)
+        if (encoding == NULL)
         {
             log_error("Failure: Could not automatically enlarge the encoding buffer for the Create request.");
             kmip_destroy(&kmip_ctx);
@@ -151,7 +165,7 @@ const char* kmipw_create(int alg_id, int alg_length) {
         kmip_set_buffer(&kmip_ctx, encoding, buffer_total_size);
         encode_result = kmip_encode_request_message(&kmip_ctx, &rm);
     }
-    if(encode_result != KMIP_OK)
+    if (encode_result != KMIP_OK)
     {
         log_error("An error occurred while encoding the Create request.");
         log_error("Error Code: %d", encode_result);
@@ -176,7 +190,7 @@ const char* kmipw_create(int alg_id, int alg_length) {
     int result = kmip_bio_send_request_encoding(&kmip_ctx, bio, (char *)encoding, kmip_ctx.index - kmip_ctx.buffer, &response, &response_size);
 
     free_tls_connection(bio, ctx);
-    if(result < 0)
+    if (result < 0)
     {
         log_error("An error occurred while creating the symmetric key.");
         log_error("Error Code: %d", result);
@@ -197,7 +211,7 @@ const char* kmipw_create(int alg_id, int alg_length) {
     /* Decode the response message and retrieve the operation results. */
     ResponseMessage resp_m = {0};
     int decode_result = kmip_decode_response_message(&kmip_ctx, &resp_m);
-    if(decode_result != KMIP_OK)
+    if (decode_result != KMIP_OK)
     {
         log_error("An error occurred while decoding the Create response.");
         log_error("Error Code: %d", decode_result);
@@ -213,7 +227,7 @@ const char* kmipw_create(int alg_id, int alg_length) {
     }
     kmip_print_response_message(log_fp, &resp_m);
 
-    if(resp_m.batch_count != 1 || resp_m.batch_items == NULL)
+    if (resp_m.batch_count != 1 || resp_m.batch_items == NULL)
     {
         log_error("Expected to find one batch item in the Create response.");
         kmip_free_response_message(&kmip_ctx, &resp_m);
@@ -226,13 +240,14 @@ const char* kmipw_create(int alg_id, int alg_length) {
     log_info("The KMIP operation was executed with no errors.");
     log_info("Result: ");
     kmip_print_result_status_enum(log_fp, result);
-    if(result == KMIP_STATUS_SUCCESS)
+    if (result == KMIP_STATUS_SUCCESS)
     {
         CreateResponsePayload *pld = (CreateResponsePayload *)req.response_payload;
-        if(pld != NULL)
+        if (pld != NULL)
         {
             TextString *uuid = pld->unique_identifier;
-            if(uuid != NULL) {
+            if (uuid != NULL)
+            {
                 log_debug("Symmetric Key ID: %.*s", (int)uuid->size, uuid->value);
                 key_uuid = uuid->value;
             }

@@ -7,6 +7,9 @@ package ihub
 import (
 	"crypto/x509/pkix"
 	"fmt"
+	commConfig "github.com/intel-secl/intel-secl/v3/pkg/lib/common/config"
+	cos "github.com/intel-secl/intel-secl/v3/pkg/lib/common/os"
+	"os"
 	"strings"
 
 	"github.com/intel-secl/intel-secl/v3/pkg/ihub/constants"
@@ -25,16 +28,15 @@ func (app *App) setup(args []string) error {
 	var ansFile string
 	var force bool
 	for i, flag := range args {
+		if flag == "--force" {
+			force = true
+		}
 		if flag == "-f" || flag == "--file" {
 			if i+1 < len(args) {
 				ansFile = args[i+1]
-				break
 			} else {
 				return errors.New("Invalid answer file name")
 			}
-		}
-		if flag == "--force" {
-			force = true
 		}
 	}
 	// dump answer file to env
@@ -48,12 +50,6 @@ func (app *App) setup(args []string) error {
 	if err != nil {
 		return err
 	}
-	defer func() {
-		derr := app.Config.SaveConfiguration(constants.DefaultConfigFilePath)
-		if derr != nil {
-			log.WithError(derr).Error("Error closing response")
-		}
-	}()
 	cmd := args[1]
 	// print help and return if applicable
 	if len(args) > 2 && args[2] == "--help" {
@@ -94,12 +90,22 @@ func (app *App) setup(args []string) error {
 			return errors.New("Failed to run setup task " + cmd)
 		}
 	}
-	return nil
+
+	err = app.Config.SaveConfiguration(constants.DefaultConfigFilePath)
+	if err != nil {
+		return errors.Wrap(err, "Failed to save configuration")
+	}
+	// Containers are always run as non root users, does not require changing ownership of config directories
+	if _, err := os.Stat("/.container-env"); err == nil {
+		return nil
+	}
+
+	return cos.ChownDirForUser(constants.ServiceName, app.configDir())
 }
 
 // a helper function for setting up the task runner
 func (app *App) setupTaskRunner() (*setup.Runner, error) {
-
+	loadAlias()
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
 
@@ -135,9 +141,7 @@ func (app *App) setupTaskRunner() (*setup.Runner, error) {
 	})
 
 	runner.AddTask("attestation-service-connection", "", &tasks.AttestationServiceConnection{
-		AASConfig:         &app.Config.AAS,
 		AttestationConfig: &app.Config.AttestationService,
-		IHUBConfig:        &app.Config.IHUB,
 		ConsoleWriter:     app.consoleWriter(),
 	})
 
@@ -153,8 +157,19 @@ func (app *App) setupTaskRunner() (*setup.Runner, error) {
 	})
 
 	runner.AddTask("download-saml-cert", "", &tasks.DownloadSamlCert{
-		Config:       app.Config,
-		SamlCertPath: constants.SamlCertFilePath,
+		AttestationConfig: &app.Config.AttestationService,
+		SamlCertPath:      constants.SamlCertFilePath,
+		ConsoleWriter:     app.consoleWriter(),
+	})
+
+	runner.AddTask("update-service-config", "", &tasks.UpdateServiceConfig{
+		ConsoleWriter: app.consoleWriter(),
+		ServiceConfig: commConfig.ServiceConfig{
+			Username: viper.GetString("ihub-service-username"),
+			Password: viper.GetString("ihub-service-password"),
+		},
+		AASApiUrl: viper.GetString("aas-base-url"),
+		AppConfig: &app.Config,
 	})
 
 	return runner, nil

@@ -60,7 +60,7 @@ func (c Client) GetCaCerts(domain string) ([]byte, error) {
 	}
 	req.Header.Set("Accept", "application/x-pem-file")
 
-	cacerts, err := util.SendRequest(req, c.AASURL.String(), c.UserName, c.Password, c.CertArray)
+	cacerts, err := util.SendNoAuthRequest(req, c.CertArray)
 	if err != nil {
 		return nil, errors.Wrap(err, "vs/client:GetCaCerts() Error while reading response body")
 	}

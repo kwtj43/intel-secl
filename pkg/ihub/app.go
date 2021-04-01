@@ -16,7 +16,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
@@ -185,7 +184,11 @@ func (app *App) start() error {
 	if err != nil {
 		return errors.Wrap(err, "Could not locate systemctl to start service")
 	}
-	return syscall.Exec(systemctl, []string{"systemctl", "start", "ihub"}, os.Environ())
+	cmd := exec.Command(systemctl, "start", "ihub")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = os.Environ()
+	return cmd.Run()
 }
 
 func (app *App) stop() error {
@@ -195,7 +198,6 @@ func (app *App) stop() error {
 	if err != nil {
 		return errors.Wrap(err, "Could not locate systemctl to stop service")
 	}
-	//syscall does not return execution to the caller but replaces the current (Go) process with the process called, hence used exec
 	cmd := exec.Command(systemctl, "stop", "ihub")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -210,5 +212,9 @@ func (app *App) status() error {
 	if err != nil {
 		return errors.Wrap(err, "Could not locate systemctl to check status of service")
 	}
-	return syscall.Exec(systemctl, []string{"systemctl", "status", "ihub"}, os.Environ())
+	cmd := exec.Command(systemctl, "status", "ihub")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = os.Environ()
+	return cmd.Run()
 }

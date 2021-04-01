@@ -63,7 +63,7 @@ func TestVmwareConnectorGetHostManifest(t *testing.T) {
 		client: mockVMwareClient,
 	}
 
-	hostManifest, err := vmwareConnector.GetHostManifest()
+	hostManifest, err := vmwareConnector.GetHostManifest(nil)
 	log.Info(hostManifest)
 	assert.NoError(t, err)
 	assert.Equal(t, "VMware ESXi", hostManifest.HostInfo.OSName)
@@ -77,7 +77,7 @@ func TestVmwareConnectorGetHostManifest(t *testing.T) {
 		client: mockVMwareClient,
 	}
 
-	_, err = vmwareConnector.GetHostManifest()
+	_, err = vmwareConnector.GetHostManifest(nil)
 	assert.Error(t, err)
 
 	//Test error for invalid digest algorithm
@@ -90,7 +90,7 @@ func TestVmwareConnectorGetHostManifest(t *testing.T) {
 		client: mockVMwareClient,
 	}
 
-	_, err = vmwareConnector.GetHostManifest()
+	_, err = vmwareConnector.GetHostManifest(nil)
 	assert.Error(t, err)
 }
 
@@ -109,7 +109,7 @@ func TestVmwareConnectorGetHostManifestErrorHostInfo(t *testing.T) {
 		client: mockVMwareClient,
 	}
 
-	_, err = vmwareConnector.GetHostManifest()
+	_, err = vmwareConnector.GetHostManifest(nil)
 	assert.Error(t, err)
 }
 
@@ -129,7 +129,7 @@ func TestVmwareConnectorGetHostManifestErrorTpmReport(t *testing.T) {
 		client: mockVMwareClient,
 	}
 
-	_, err = vmwareConnector.GetHostManifest()
+	_, err = vmwareConnector.GetHostManifest(nil)
 	assert.Error(t, err)
 }
 
@@ -149,7 +149,7 @@ func TestVmwareConnectorGetHostManifestUnreliableTpmReport(t *testing.T) {
 		client: mockVMwareClient,
 	}
 
-	_, err = vmwareConnector.GetHostManifest()
+	_, err = vmwareConnector.GetHostManifest(nil)
 	assert.Error(t, err)
 }
 

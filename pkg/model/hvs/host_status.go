@@ -13,6 +13,7 @@ import (
 // HostStatusInformation holds the current connection state between the Host's Trust Agent and VS and the timestamp of the
 // last successful connection
 type HostStatusInformation struct {
+	// swagger:strfmt string
 	HostState         HostState `json:"host_state"`
 	LastTimeConnected time.Time `json:"last_time_connected"`
 }

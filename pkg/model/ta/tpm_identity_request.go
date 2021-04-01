@@ -23,19 +23,16 @@ package model
 // 	                                   9Kv5ij8UqHk2P1DzWjCBvwCqHTzRsuf9b9FeT+f4aWgLNQ=="
 // 	}
 type IdentityProofRequest struct {
-	Secret                     []byte                `json:"secret"`
-	Credential                 []byte                `json:"credential"`
-	TpmSymmetricKeyParams      TpmSymmetricKeyParams `json:"symmetric_params"`
-	SymmetricBlob              []byte                `json:"symmetric_blob"`
-	EndorsementCertificateBlob []byte                `json:"ek_blob"`
+	Secret                []byte                `json:"secret"`
+	Credential            []byte                `json:"credential"`
+	TpmSymmetricKeyParams TpmSymmetricKeyParams `json:"symmetric_params"`
+	SymmetricBlob         []byte                `json:"symmetric_blob"`
 }
 
 type IdentityRequest struct {
-	TpmVersion           string `json:"tpm_version"`
-	IdentityRequestBlock []byte `json:"identity_request_blob"`
-	AikModulus           []byte `json:"aik_modulus"`
-	AikBlob              []byte `json:"aik_blob"`
-	AikName              []byte `json:"aik_name"`
+	TpmVersion string `json:"tpm_version"`
+	AikModulus []byte `json:"aik_modulus"`
+	AikName    []byte `json:"aik_name"`
 }
 
 type IdentityChallengePayload struct {

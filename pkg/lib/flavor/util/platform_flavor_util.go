@@ -309,7 +309,9 @@ func (pfutil PlatformFlavorUtil) GetPcrDetails(pcrManifest hcTypes.PcrManifest, 
 			currPcrEx.Pcr.Index = pcr.Index
 			currPcrEx.Pcr.Bank = pcr.Bank
 			currPcrEx.Measurement = pcrInfo.Value
-			currPcrEx.PCRMatches = true
+			if rules.PcrMatches {
+				currPcrEx.PCRMatches = true
+			}
 
 			// Populate Event log value
 			var eventLogEqualEvents []hcTypes.EventLog

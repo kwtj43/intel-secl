@@ -1,11 +1,12 @@
-FROM centos:8
+#  Copyright (C) 2021 Intel Corporation
+#  SPDX-License-Identifier: BSD-3-Clause
 
-RUN useradd -u 1001 --comment "Integration Hub" --home /opt/ihub  --shell /bin/false ihub
+FROM centos:8
 
 COPY cmd/ihub/ihub /usr/bin/ihub
 
 COPY build/image/entrypoint-ihub.sh /entrypoint.sh
 
-RUN chmod +x /entrypoint.sh
+RUN touch /.container-env && chmod +x /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]

@@ -59,7 +59,7 @@ type pcrSelection struct {
 }
 
 func VerifyQuoteAndGetPCRManifest(decodedEventLog string, verificationNonce []byte, tpmQuoteInBytes []byte,
-	aikCertificate *x509.Certificate) (types.PcrManifest, error) {
+	aikCertificate *x509.Certificate) (types.PcrManifest, []byte, error) {
 
 	log.Trace("util/aik_quote_verifier:VerifyQuoteAndGetPCRManifest() Entering")
 	defer log.Trace("util/aik_quote_verifier:VerifyQuoteAndGetPCRManifest() Leaving")
@@ -88,7 +88,7 @@ func VerifyQuoteAndGetPCRManifest(decodedEventLog string, verificationNonce []by
 	secLog.Debugf("util/aik_quote_verifier:VerifyQuoteAndGetPCRManifest() "+
 		"Received nonce is : %s", base64.StdEncoding.EncodeToString(tpm2bData))
 	if !bytes.EqualFold(tpm2bData, verificationNonce) {
-		return types.PcrManifest{}, errors.New("util/aik_quote_verifier:VerifyQuoteAndGetPCRManifest() Challenge " +
+		return types.PcrManifest{}, nil, errors.New("util/aik_quote_verifier:VerifyQuoteAndGetPCRManifest() Challenge " +
 			"and received nonce does not match")
 	}
 
@@ -106,7 +106,7 @@ func VerifyQuoteAndGetPCRManifest(decodedEventLog string, verificationNonce []by
 	pcrBankCount := binary.BigEndian.Uint32(tpmQuoteInBytes[index : index+4])
 	secLog.Debugf("util/aik_quote_verifier:VerifyQuoteAndGetPCRManifest() PCR bank count is : %v", pcrBankCount)
 	if pcrBankCount > MAX_PCR_BANKS {
-		return types.PcrManifest{}, errors.New("util/aik_quote_verifier:VerifyQuoteAndGetPCRManifest() AIK Quote " +
+		return types.PcrManifest{}, nil, errors.New("util/aik_quote_verifier:VerifyQuoteAndGetPCRManifest() AIK Quote " +
 			"verification failed, Number of PCR selection array in " + "the quote is greater than 5. PCRBankCount " +
 			": " + fmt.Sprint(pcrBankCount))
 	}
@@ -159,20 +159,20 @@ func VerifyQuoteAndGetPCRManifest(decodedEventLog string, verificationNonce []by
 	hash := sha256.New()
 	_, err := hash.Write(quoteInfo)
 	if err != nil {
-		return types.PcrManifest{}, errors.Wrap(err, "Error writing quote information")
+		return types.PcrManifest{}, nil, errors.Wrap(err, "Error writing quote information")
 	}
-	quoteDigest := hash.Sum(nil)
-	secLog.Debugf("util/aik_quote_verifier:VerifyQuoteAndGetPCRManifest() Quote signature : %v", quoteDigest)
-	err = rsa.VerifyPKCS1v15(aikCertificate.PublicKey.(*rsa.PublicKey), crypto.SHA256, quoteDigest, tpmtSignature)
+	pcrsDigest := hash.Sum(nil)
+	secLog.Debugf("util/aik_quote_verifier:VerifyQuoteAndGetPCRManifest() Quote signature : %v", pcrsDigest)
+	err = rsa.VerifyPKCS1v15(aikCertificate.PublicKey.(*rsa.PublicKey), crypto.SHA256, pcrsDigest, tpmtSignature)
 	if err != nil {
-		return types.PcrManifest{}, errors.Wrap(err, "util/aik_quote_verifier:VerifyQuoteAndGetPCRManifest() "+
-			"Error verifying quote digest")
+		return types.PcrManifest{}, nil, errors.Wrap(err, "util/aik_quote_verifier:VerifyQuoteAndGetPCRManifest() "+
+			"Error verifying pcrs digest")
 	}
 
 	pos += tpmtSignatureSize
 	pcrLen := uint16(len(tpmQuoteInBytes)) - (pos + tpmtSigIndex)
 	if pcrLen <= 0 {
-		return types.PcrManifest{}, errors.New("util/aik_quote_verifier:VerifyQuoteAndGetPCRManifest() " +
+		return types.PcrManifest{}, nil, errors.New("util/aik_quote_verifier:VerifyQuoteAndGetPCRManifest() " +
 			"AIK Quote verification failed, No PCR values included in quote")
 	}
 	pcrs := tpmtSig[pos : pos+pcrLen]
@@ -190,7 +190,7 @@ func VerifyQuoteAndGetPCRManifest(decodedEventLog string, verificationNonce []by
 		} else {
 			secLog.Error("util/aik_quote_verifier:VerifyQuoteAndGetPCRManifest() "+
 				"AIK Quote verification failed, Unsupported PCR banks, hash algorithm id : ", hashAlg)
-			return types.PcrManifest{}, errors.New("util/aik_quote_verifier:VerifyQuoteAndGetPCRManifest()" +
+			return types.PcrManifest{}, nil, errors.New("util/aik_quote_verifier:VerifyQuoteAndGetPCRManifest()" +
 				"AIK Quote verification failed, Unsupported PCR banks, hash algorithm id : %s" + strconv.Itoa(int(hashAlg)))
 		}
 		/* For each pcr bank iterate through each pcr selection array.
@@ -225,14 +225,14 @@ func VerifyQuoteAndGetPCRManifest(decodedEventLog string, verificationNonce []by
 	hash = sha256.New()
 	_, err = hash.Write(pcrConcat)
 	if err != nil {
-		return types.PcrManifest{}, errors.Wrap(err, "Error writing pcr hash")
+		return types.PcrManifest{}, nil, errors.Wrap(err, "Error writing pcr hash")
 	}
-	quoteDigest = hash.Sum(nil)
+	pcrsDigest = hash.Sum(nil)
 
-	if !bytes.EqualFold(quoteDigest, tpm2bDigest) {
+	if !bytes.EqualFold(pcrsDigest, tpm2bDigest) {
 		log.Error("util/aik_quote_verifier:VerifyQuoteAndGetPCRManifest() AIK Quote verification failed, Digest " +
 			"of Concatenated PCR values does not match with PCR digest in the quote")
-		return types.PcrManifest{}, errors.New("util/aik_quote_verifier:VerifyQuoteAndGetPCRManifest() AIK Quote " +
+		return types.PcrManifest{}, nil, errors.New("util/aik_quote_verifier:VerifyQuoteAndGetPCRManifest() AIK Quote " +
 			"verification failed, Digest of Concatenated PCR values does not match with PCR digest in the quote")
 	}
 
@@ -240,11 +240,11 @@ func VerifyQuoteAndGetPCRManifest(decodedEventLog string, verificationNonce []by
 
 	pcrManifest, err := createPCRManifest(strings.Split(buffer.String(), "\n"), decodedEventLog)
 	if err != nil {
-		return types.PcrManifest{}, errors.Wrap(err, "util/aik_quote_verifier:VerifyQuoteAndGetPCRManifest() Error "+
+		return types.PcrManifest{}, nil, errors.Wrap(err, "util/aik_quote_verifier:VerifyQuoteAndGetPCRManifest() Error "+
 			"retrieving PCR manifest from quote")
 	}
 	log.Info("util/aik_quote_verifier:VerifyQuoteAndGetPCRManifest() Successfully created PCR manifest")
-	return pcrManifest, nil
+	return pcrManifest, pcrsDigest, nil
 }
 
 func GetVerificationNonce(nonce []byte, quoteResponse taModel.TpmQuoteResponse) (string, error) {

@@ -13,11 +13,12 @@ import "time"
 
 // general HVS constants
 const (
-	ServiceName     = "HVS"
-	ServiceDir      = "hvs/"
-	OldServiceName  = "mtwilson"
-	ApiVersion      = "/v2"
-	ServiceUserName = "hvs"
+	ServiceName         = "HVS"
+	ExplicitServiceName = "Host Verification Service"
+	ServiceDir          = "hvs/"
+	OldServiceName      = "mtwilson"
+	ApiVersion          = "/v2"
+	ServiceUserName     = "hvs"
 
 	// Timestamp operations
 	ParamDateFormat        = "2006-01-02"
@@ -154,6 +155,7 @@ const (
 	DefaultFvsNumberOfVerifiers            = 20
 	DefaultFvsNumberOfDataFetchers         = 20
 	DefaultSkipFlavorSignatureVerification = false
+	DefaultHostTrustCacheThreshold         = 100000
 )
 
 //VCSS constants
@@ -181,3 +183,11 @@ const (
 
 //Default flavor templates directory
 const DefaultFlavorTemplatesDirectory = "/etc/hvs/templates/"
+
+const (
+	FvsNumberOfVerifiers               = "fvs-number-of-verifiers"
+	FvsNumberOfDataFetchers            = "fvs-number-of-data-fetchers"
+	FvsSkipFlavorSignatureVerification = "fvs-skip-flavor-signature-verification"
+	HrrsRefreshPeriod                  = "hrrs-refresh-period"
+	VcssRefreshPeriod                  = "vcss-refresh-period"
+)

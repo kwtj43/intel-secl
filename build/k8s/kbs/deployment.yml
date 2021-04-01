@@ -1,0 +1,65 @@
+#  Copyright (C) 2021 Intel Corporation
+#  SPDX-License-Identifier: BSD-3-Clause
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kbs-deployment
+  namespace: isecl
+  labels:
+    env: demo
+    app: kbs
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kbs
+  template:
+    metadata:
+      labels:
+        app: kbs
+    spec:
+      securityContext:
+        fsGroup: 1001
+      containers:
+        - name: kbs
+          image: <image-name>:<image-tag>
+          imagePullPolicy: Always
+          securityContext:
+            runAsUser: 1001
+            runAsGroup: 1001
+          ports:
+            - containerPort: 9443
+          envFrom:
+            - configMapRef:
+                name: kbs-config
+          env:
+            - name: KBS_SERVICE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: kbs-service-credentials
+                  key: KBS_SERVICE_USERNAME
+            - name: KBS_SERVICE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kbs-service-credentials
+                  key: KBS_SERVICE_PASSWORD
+          volumeMounts:
+            - name: kbs-config-volume
+              mountPath: /etc/kbs
+            - name: kbs-logs-volume
+              mountPath: /var/log/kbs
+            - name: kbs-opt-volume
+              mountPath: /opt/kbs
+      volumes:
+        - name: kbs-logs-volume
+          persistentVolumeClaim:
+            claimName: kbs-logs-pvc
+        - name: kbs-config-volume
+          persistentVolumeClaim:
+            claimName: kbs-config-pvc
+        - name: kbs-opt-volume
+          persistentVolumeClaim:
+            claimName: kbs-opt-pvc
+

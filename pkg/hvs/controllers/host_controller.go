@@ -23,6 +23,7 @@ import (
 	"github.com/pkg/errors"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -51,7 +52,9 @@ func NewHostController(hs domain.HostStore, hss domain.HostStatusStore, fs domai
 }
 
 var hostSearchParams = map[string]bool{"id": true, "nameEqualTo": true, "nameContains": true, "hostHardwareId": true,
-	"key": true, "value": true}
+	"key": true, "value": true, "trusted": true, "getTrustStatus": true, "getHostStatus": true, "orderBy": true}
+
+var hostRetrieveParams = map[string]bool{"getReport": true, "getHostStatus": true}
 
 func (hc *HostController) Create(w http.ResponseWriter, r *http.Request) (interface{}, int, error) {
 	defaultLog.Trace("controllers/host_controller:Create() Entering")
@@ -89,8 +92,22 @@ func (hc *HostController) Retrieve(w http.ResponseWriter, r *http.Request) (inte
 	defaultLog.Trace("controllers/host_controller:Retrieve() Entering")
 	defer defaultLog.Trace("controllers/host_controller:Retrieve() Leaving")
 
+	if err := utils.ValidateQueryParams(r.URL.Query(), hostRetrieveParams); err != nil {
+		secLog.Errorf("controllers/host_controller:Retrieve() %s", err.Error())
+		return nil, http.StatusBadRequest, &commErr.ResourceError{Message: err.Error()}
+	}
+
+	// check for query parameters
+	defaultLog.WithField("query", r.URL.Query()).Debug("query hosts")
+	criteria, err := populateHostInfoFetchCriteria(r.URL.Query())
+	if err != nil {
+		secLog.WithError(err).Errorf("controllers/host_controller:Search() %s Invalid host info fetch criteria",
+			commLogMsg.InvalidInputBadParam)
+		return nil, http.StatusBadRequest, &commErr.ResourceError{Message: "Invalid host info fetch criteria"}
+	}
+
 	id := uuid.MustParse(mux.Vars(r)["hId"])
-	host, status, err := hc.retrieveHost(id)
+	host, status, err := hc.retrieveHost(id, criteria)
 	if err != nil {
 		return nil, status, err
 	}
@@ -157,7 +174,7 @@ func (hc *HostController) Delete(w http.ResponseWriter, r *http.Request) (interf
 	defer defaultLog.Trace("controllers/host_controller:Delete() Leaving")
 
 	id := uuid.MustParse(mux.Vars(r)["hId"])
-	host, status, err := hc.retrieveHost(id)
+	host, status, err := hc.retrieveHost(id, nil)
 	if err != nil {
 		return nil, status, err
 	}
@@ -182,26 +199,35 @@ func (hc *HostController) Search(w http.ResponseWriter, r *http.Request) (interf
 
 	// check for query parameters
 	defaultLog.WithField("query", r.URL.Query()).Trace("query hosts")
-	criteria, err := populateHostFilterCriteria(r.URL.Query())
+	hostFilterCriteria, err := populateHostFilterCriteria(r.URL.Query())
 	if err != nil {
-		secLog.WithError(err).Errorf("controllers/host_controller:Search() %s Invalid filter criteria", commLogMsg.InvalidInputBadParam)
-		return nil, http.StatusBadRequest, &commErr.ResourceError{Message: "Invalid filter criteria"}
+		secLog.WithError(err).Errorf("controllers/host_controller:Search() %s Invalid host filter criteria",
+			commLogMsg.InvalidInputBadParam)
+		return nil, http.StatusBadRequest, &commErr.ResourceError{Message: "Invalid host filter criteria"}
 	}
 
-	if criteria.Key != "" {
-		hostIds, err := hc.HSStore.FindHostIdsByKeyValue(criteria.Key, criteria.Value)
+	hostInfoFetchCriteria, err := populateHostInfoFetchCriteria(r.URL.Query())
+	if err != nil {
+		secLog.WithError(err).Errorf("controllers/host_controller:Search() %s Invalid host info fetch criteria",
+			commLogMsg.InvalidInputBadParam)
+		return nil, http.StatusBadRequest, &commErr.ResourceError{Message: "Invalid host info fetch criteria"}
+	}
+
+	if hostFilterCriteria.Key != "" {
+		hostIds, err := hc.HSStore.FindHostIdsByKeyValue(hostFilterCriteria.Key, hostFilterCriteria.Value)
 		if err != nil {
 			defaultLog.WithError(err).Error("controllers/host_controller:Search() HostStatus FindHostIdsByKeyValue failed")
 			return nil, http.StatusInternalServerError, errors.Errorf("Failed to search Hosts")
 		}
 		if hostIds == nil {
-			defaultLog.Infof("controllers/host_controller:Search() There is no such host for given key: %s and value: %s", criteria.Key, criteria.Value)
+			defaultLog.Infof("controllers/host_controller:Search() There is no such host for given key: %s and "+
+				"value: %s", hostFilterCriteria.Key, hostFilterCriteria.Value)
 			return nil, http.StatusBadRequest, &commErr.ResourceError{Message: "Host with given filter criteria does not exist"}
 		}
-		criteria.IdList = hostIds
+		hostFilterCriteria.IdList = hostIds
 	}
 
-	hosts, err := hc.HStore.Search(criteria)
+	hosts, err := hc.HStore.Search(hostFilterCriteria, hostInfoFetchCriteria)
 	if err != nil {
 		defaultLog.WithError(err).Error("controllers/host_controller:Search() Host search failed")
 		return nil, http.StatusInternalServerError, errors.Errorf("Failed to search Hosts")
@@ -227,8 +253,7 @@ func (hc *HostController) CreateHost(reqHost hvs.HostCreateRequest) (interface{}
 	}
 
 	existingHosts, err := hc.HStore.Search(&models.HostFilterCriteria{
-		NameEqualTo: reqHost.HostName,
-	})
+		NameEqualTo: reqHost.HostName}, nil)
 	if err != nil {
 		defaultLog.WithError(err).Error("controllers/host_controller:CreateHost() Host search failed")
 		return nil, http.StatusInternalServerError, &commErr.ResourceError{Message: "Failed to create Host"}
@@ -341,7 +366,7 @@ func (hc *HostController) UpdateHost(reqHost hvs.Host) (interface{}, int, error)
 	defaultLog.Trace("controllers/host_controller:UpdateHost() Entering")
 	defer defaultLog.Trace("controllers/host_controller:UpdateHost() Leaving")
 
-	_, status, err := hc.retrieveHost(reqHost.Id)
+	_, status, err := hc.retrieveHost(reqHost.Id, nil)
 	if err != nil {
 		return nil, status, err
 	}
@@ -389,7 +414,7 @@ func (hc *HostController) UpdateHost(reqHost hvs.Host) (interface{}, int, error)
 		return nil, http.StatusInternalServerError, &commErr.ResourceError{Message: "Failed to update Host"}
 	}
 
-	updatedHost, err := hc.HStore.Retrieve(reqHost.Id)
+	updatedHost, err := hc.HStore.Retrieve(reqHost.Id, nil)
 	if err != nil {
 		defaultLog.WithError(err).Error("controllers/host_controller:UpdateHost() Host retrieve failed")
 		return nil, http.StatusInternalServerError, &commErr.ResourceError{Message: "Failed to retrieve Host"}
@@ -407,11 +432,11 @@ func (hc *HostController) UpdateHost(reqHost hvs.Host) (interface{}, int, error)
 	return updatedHost, http.StatusOK, nil
 }
 
-func (hc *HostController) retrieveHost(id uuid.UUID) (interface{}, int, error) {
+func (hc *HostController) retrieveHost(id uuid.UUID, criteria *models.HostInfoFetchCriteria) (interface{}, int, error) {
 	defaultLog.Trace("controllers/host_controller:retrieveHost() Entering")
 	defer defaultLog.Trace("controllers/host_controller:retrieveHost() Leaving")
 
-	host, err := hc.HStore.Retrieve(id)
+	host, err := hc.HStore.Retrieve(id, criteria)
 	if err != nil {
 		if strings.Contains(err.Error(), commErr.RowsNotFound) {
 			defaultLog.WithError(err).WithField("id", id).Error("controllers/host_controller:retrieveHost() Host with specified id could not be located")
@@ -687,6 +712,54 @@ func populateHostFilterCriteria(params url.Values) (*models.HostFilterCriteria, 
 		}
 		criteria.Key = key
 		criteria.Value = value
+	} else if params.Get("trusted") != "" {
+		trustStatus, err := strconv.ParseBool(params.Get("trusted"))
+		if err != nil {
+			return nil, errors.New("Invalid trusted query param value, must be true/false")
+		}
+		criteria.Trusted = &trustStatus
+	}
+
+	if params.Get("orderBy") != "" {
+		orderType, err := models.GetOrderType(params.Get("orderBy"))
+		if err != nil {
+			return nil, errors.New("Invalid orderBy query param value, must be asc/desc")
+		}
+		criteria.OrderBy = orderType
+	}
+
+	return &criteria, nil
+}
+
+func populateHostInfoFetchCriteria(params url.Values) (*models.HostInfoFetchCriteria, error) {
+	defaultLog.Trace("controllers/host_controller:populateHostInfoFetchCriteria() Entering")
+	defer defaultLog.Trace("controllers/host_controller:populateHostInfoFetchCriteria() Leaving")
+
+	var criteria models.HostInfoFetchCriteria
+
+	if params.Get("getReport") != "" {
+		getReport, err := strconv.ParseBool(params.Get("getReport"))
+		if err != nil {
+			return nil, errors.New("Invalid getReport query param value, must be boolean")
+		}
+
+		criteria.GetReport = getReport
+
+	}
+	if params.Get("getTrustStatus") != "" {
+		getTrustStatus, err := strconv.ParseBool(params.Get("getTrustStatus"))
+		if err != nil {
+			return nil, errors.Wrap(err, "Invalid getTrustStatus query param value, must be boolean")
+		}
+		criteria.GetTrustStatus = getTrustStatus
+	}
+
+	if params.Get("getHostStatus") != "" {
+		getHostStatus, err := strconv.ParseBool(params.Get("getHostStatus"))
+		if err != nil {
+			return nil, errors.Wrap(err, "Invalid getHostStatus query param value, must be boolean")
+		}
+		criteria.GetHostStatus = getHostStatus
 	}
 
 	return &criteria, nil
@@ -721,7 +794,7 @@ func (hc *HostController) AddFlavorgroup(w http.ResponseWriter, r *http.Request)
 	}
 
 	hId := uuid.MustParse(mux.Vars(r)["hId"])
-	_, status, err := hc.retrieveHost(hId)
+	_, status, err := hc.retrieveHost(hId, nil)
 	if err != nil {
 		return nil, status, err
 	}

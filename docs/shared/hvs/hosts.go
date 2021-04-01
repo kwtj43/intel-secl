@@ -159,6 +159,14 @@ type HostFlavorgroupCreateRequest struct {
 //   required: true
 //   type: string
 //   format: uuid
+// - name: getReport
+//   description: Fetch platform data for the host as well.
+//   in: query
+//   type: boolean
+// - name: getHostStatus
+//   description: Fetch host status for the host as well.
+//   in: query
+//   type: boolean
 // - name: Accept
 //   description: Accept header
 //   in: header
@@ -192,7 +200,7 @@ type HostFlavorgroupCreateRequest struct {
 //            "automatic", "platform_software"
 //        ]
 //    }
-
+//
 // ---
 
 // swagger:operation PUT /hosts/{host_id} Hosts UpdateHost
@@ -366,6 +374,29 @@ type HostFlavorgroupCreateRequest struct {
 //   in: query
 //   type: string
 //   required: false
+// - name: trusted
+//   description: Get host by trust status.
+//   in: query
+//   type: boolean
+//   required: false
+// - name: getTrustStatus
+//   description: Get trust status for host.
+//   in: query
+//   type: boolean
+//   required: false
+// - name: getHostStatus
+//   description: Get status of host.
+//   in: query
+//   type: boolean
+//   required: false
+// - name: orderBy
+//   description: Orders the host collection in ascending/descending order. Accepted values are "asc"/"desc" the default being "asc".
+//   in: query
+//   type: string
+//   enum:
+//      - asc
+//      - desc
+//   required: false
 // - name: Accept
 //   description: Accept header
 //   in: header
@@ -403,7 +434,7 @@ type HostFlavorgroupCreateRequest struct {
 //            }
 //        ]
 //    }
-
+//
 // ---
 
 // swagger:operation POST /hosts/{host_id}/flavorgroups HostFlavorgroupLinks CreateHostFlavorgroupLink

@@ -57,12 +57,12 @@ Privacy CA | PRIVACY_CA_CERT_FILE | - |`string` | |
 \- | PRIVACY_CA_KEY_FILE | - |`string` | |
 \- | PRIVACY_CA_COMMON_NAME | - |`string` | |
 \- | PRIVACY_CA_ISSUER | - |`string` | |
-\- | PRIVACY_CA_VALIDITY_DAYS | - |`int` | |
+\- | PRIVACY_CA_VALIDITY_YEARS | - |`int` | |
 Tag CA | TAG_CA_CERT_FILE | - |`string` | |
 \- | TAG_CA_KEY_FILE | - |`string` | |
 \- | TAG_CA_COMMON_NAME | - |`string` | |
 \- | TAG_CA_ISSUER | - |`string` | |
-\- | TAG_CA_VALIDITY_DAYS | - |`int` | |
+\- | TAG_CA_VALIDITY_YEARS | - |`int` | |
 Log | LOG_MAX_LENGTH | - |`int` | |
 \- | LOG_ENABLE_STDOUT | - |`bool` | |
 \- | LOG_LEVEL | - |`string` | |
@@ -70,7 +70,7 @@ Endorsement CA | ENDORSEMENT_CA_CERT_FILE | - |`string` | |
 \- | ENDORSEMENT_CA_KEY_FILE | - |`string` | |
 \- | ENDORSEMENT_CA_COMMON_NAME | - |`string` | |
 \- | ENDORSEMENT_CA_ISSUER | - |`string` | |
-\- | ENDORSEMENT_CA_VALIDITY_DAYS | - |`int` | |
+\- | ENDORSEMENT_CA_VALIDITY_YEARS | - |`int` | |
 Server | SERVER_PORT | - |`int` | |
 \- | SERVER_READ_TIMEOUT | - |`Duration` | | HVS_SERVER_READ_TIMEOUT
 \- | SERVER_READ_HEADER_TIMEOUT | - |`Duration` | | HVS_SERVER_READ_HEADER_TIMEOUT

@@ -9,7 +9,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"syscall"
 
 	"github.com/intel-secl/intel-secl/v3/pkg/hvs/config"
 	"github.com/intel-secl/intel-secl/v3/pkg/hvs/constants"
@@ -199,7 +198,11 @@ func (a *App) start() error {
 	if err != nil {
 		return err
 	}
-	return syscall.Exec(systemctl, []string{"systemctl", "start", "hvs"}, os.Environ())
+	cmd := exec.Command(systemctl, "start", "hvs")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = os.Environ()
+	return cmd.Run()
 }
 
 func (a *App) stop() error {
@@ -208,7 +211,6 @@ func (a *App) stop() error {
 	if err != nil {
 		return err
 	}
-	//syscall does not return execution to the caller but replaces the current (Go) process with the process called, hence used exec
 	cmd := exec.Command(systemctl, "stop", "hvs")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -222,5 +224,9 @@ func (a *App) status() error {
 	if err != nil {
 		return err
 	}
-	return syscall.Exec(systemctl, []string{"systemctl", "status", "hvs"}, os.Environ())
+	cmd := exec.Command(systemctl, "status", "hvs")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = os.Environ()
+	return cmd.Run()
 }

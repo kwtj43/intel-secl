@@ -19,7 +19,7 @@
 //     description: Enter your bearer token in the format **Bearer &lt;token>**
 //
 // swagger:meta
-package docs
+package cms
 
 // swagger:operation GET /ca-certificates CACertificate GetCACertificates
 // ---
@@ -189,21 +189,4 @@ package docs
 //         Vo9phrmt6CnVciJqul6ukFzoiRizb2OMU1mpstV/TIuEuR/fSqroZXII4U1xPp82
 //         1va55WHMBZlmi2T0XC8QKuYMw7FnnWU+whPaBUOgvtFRwoeLKBBR
 //         -----END CERTIFICATE-------
-// ---
-
-// swagger:operation GET /version Version getVersion
-// ---
-// description: Retrieves the version of Certificate Management Service.
-//
-// produces:
-// - text/plain
-// responses:
-//   "200":
-//     description: Successfully retrieved the version of Certificate Management Service.
-//     schema:
-//       type: string
-//       example: v2.2
-//
-// x-sample-call-endpoint: https://cms.com:8445/cms/v1/version
-// x-sample-call-output: v2.2
 // ---

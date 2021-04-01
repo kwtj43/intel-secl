@@ -19,7 +19,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"syscall"
 
 	// Import driver for GORM
 	_ "github.com/jinzhu/gorm/dialects/postgres"
@@ -188,7 +187,11 @@ func (a *App) start() error {
 	if err != nil {
 		return err
 	}
-	return syscall.Exec(systemctl, []string{"systemctl", "start", "authservice"}, os.Environ())
+	cmd := exec.Command(systemctl, "start", "authservice")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = os.Environ()
+	return cmd.Run()
 }
 
 func (a *App) stop() error {
@@ -197,7 +200,6 @@ func (a *App) stop() error {
 	if err != nil {
 		return err
 	}
-	//syscall does not return execution to the caller but replaces the current (Go) process with the process called, hence used exec
 	cmd := exec.Command(systemctl, "stop", "authservice")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -211,5 +213,9 @@ func (a *App) status() error {
 	if err != nil {
 		return err
 	}
-	return syscall.Exec(systemctl, []string{"systemctl", "status", "authservice"}, os.Environ())
+	cmd := exec.Command(systemctl, "status", "authservice")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = os.Environ()
+	return cmd.Run()
 }

@@ -32,11 +32,11 @@ type (
 
 	HostStore interface {
 		Create(*hvs.Host) (*hvs.Host, error)
-		Retrieve(uuid.UUID) (*hvs.Host, error)
+		Retrieve(uuid.UUID, *models.HostInfoFetchCriteria) (*hvs.Host, error)
 		Update(*hvs.Host) error
 		Delete(uuid.UUID) error
 		DeleteByHostName(string) error
-		Search(*models.HostFilterCriteria) ([]*hvs.Host, error)
+		Search(*models.HostFilterCriteria, *models.HostInfoFetchCriteria) ([]*hvs.Host, error)
 		AddFlavorgroups(uuid.UUID, []uuid.UUID) error
 		RetrieveFlavorgroup(uuid.UUID, uuid.UUID) (*hvs.HostFlavorgroup, error)
 		RemoveFlavorgroups(uuid.UUID, []uuid.UUID) error
@@ -135,10 +135,10 @@ type (
 	HostTrustManager interface {
 		// Verify the trust of the a host.
 		//Returns the host trust report. For now marking this as interface since we have not defined the report structure
-		VerifyHost(hostId uuid.UUID, fetchHostData, preferHashMatch bool) (*models.HVSReport, error)
+		VerifyHost(hostId uuid.UUID, fetchHostData bool, preferHashMatch bool) (*models.HVSReport, error)
 
-		// This method is an ansychrounous method meant to do the verify the trust of the host
-		// asynchronously. The request are persisted to Store in case the server is taken down.
+		// This method is an asynchronous method meant to do the verify the trust of the host
+		// asynchronously. The requests are persisted to Store in case the server is taken down.
 		// Parameters:
 		// hostIds - slice of hosts id whose trust should be verified
 		// fetchHostData - Fetch a new Manifest/Data from the host.
@@ -151,25 +151,25 @@ type (
 	}
 
 	HostDataReceiver interface {
-		ProcessHostData(context.Context, hvs.Host, *types.HostManifest, error) error
+		ProcessHostData(ctx context.Context, host hvs.Host, data *types.HostManifest, preferHashMatch bool, err error) error
 	}
 
 	HostDataFetcher interface {
 		// Synchronous method that blocks till the data is retrieved from the host.
-		Retrieve(context.Context, hvs.Host) (*types.HostManifest, error)
+		Retrieve(host hvs.Host) (*types.HostManifest, error)
 
 		// Asynchronous method to be used to fetch data from hosts. As soon as the request is registered,
 		// the method returns. The result is returned individually as they are processed.
 		// We need the single host method a there is a need to cancel individual host fetch
 		// using the context
-		RetrieveAsync(context.Context, hvs.Host, ...HostDataReceiver) error
+		RetrieveAsync(ctx context.Context, host hvs.Host, preferHashMatch bool, rcvrs ...HostDataReceiver) error
 
 		// TODO: ? Do we need a method that can use used to pass in a list rather than one at a time
 		// RetriveMultipleAsync(context.Context, []*hvs.Host, rcvrs ...HostDataReceiver) error
 	}
 
 	HostTrustVerifier interface {
-		Verify(uuid.UUID, *types.HostManifest, bool) (*models.HVSReport, error)
+		Verify(hostId uuid.UUID, hostData *types.HostManifest, newData bool, preferHashMatch bool) (*models.HVSReport, error)
 	}
 
 	AuditLogWriter interface {

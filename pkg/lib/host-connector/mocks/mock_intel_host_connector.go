@@ -26,7 +26,7 @@ func (ihc *MockIntelConnector) GetHostDetails() (taModel.HostInfo, error) {
 	return args.Get(0).(taModel.HostInfo), args.Error(1)
 }
 
-func (ihc *MockIntelConnector) GetHostManifest() (types.HostManifest, error) {
+func (ihc *MockIntelConnector) GetHostManifest([]int) (types.HostManifest, error) {
 	args := ihc.Called()
 	var hostManifest types.HostManifest
 	// this is required for any test case that requires a good HostManifest

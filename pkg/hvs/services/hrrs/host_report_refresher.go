@@ -113,7 +113,7 @@ func (refresher *hostReportRefresherImpl) refreshReports() error {
 	defaultLog.Debugf("HRRS found %d hosts to refresh", len(hostIDs))
 
 	if len(hostIDs) > 0 {
-		err = refresher.hostTrustManager.VerifyHostsAsync(hostIDs, true, false)
+		err = refresher.hostTrustManager.VerifyHostsAsync(hostIDs, true, true)
 		if err != nil {
 			return errors.Wrap(err, "HRRS encountered an error calling the host trust manager")
 		}

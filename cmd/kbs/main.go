@@ -42,6 +42,11 @@ func openLogFiles() (logFile *os.File, httpLogFile *os.File, secLogFile *os.File
 		return nil, nil, nil, err
 	}
 
+	// Containers are always run as non root users, does not require changing ownership of log directories
+	if _, err := os.Stat("/.container-env"); err == nil {
+		return logFile, httpLogFile, secLogFile, nil
+	}
+
 	kbsUser, err := user.Lookup(ServiceUserName)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("Could not find user '%s'", ServiceUserName)
@@ -81,22 +86,7 @@ func main() {
 		}
 	} else {
 		defer func() {
-			err = logFile.Close()
-			if err != nil {
-				fmt.Println("Failed close log file:", err.Error())
-			}
-		}()
-		defer func() {
-			err = httpLogFile.Close()
-			if err != nil {
-				fmt.Println("Failed close log file:", err.Error())
-			}
-		}()
-		defer func() {
-			err = secLogFile.Close()
-			if err != nil {
-				fmt.Println("Failed close log file:", err.Error())
-			}
+			closeLogFiles(logFile, httpLogFile, secLogFile)
 		}()
 		app = &kbs.App{
 			LogWriter:     logFile,
@@ -108,6 +98,23 @@ func main() {
 	err = app.Run(os.Args)
 	if err != nil {
 		fmt.Println("Application returned with error : ", err.Error())
+		closeLogFiles(logFile, httpLogFile, secLogFile)
 		os.Exit(1)
+	}
+}
+
+func closeLogFiles(logFile, httpLogFile, secLogFile *os.File) {
+	var err error
+	err = logFile.Close()
+	if err != nil {
+		fmt.Println("Failed to close default log file:", err.Error())
+	}
+	err = httpLogFile.Close()
+	if err != nil {
+		fmt.Println("Failed to close http log file:", err.Error())
+	}
+	err = secLogFile.Close()
+	if err != nil {
+		fmt.Println("Failed to close security log file:", err.Error())
 	}
 }

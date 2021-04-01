@@ -210,11 +210,12 @@ func (tenantConnection TenantConnection) validateService() error {
 
 func (tenantConnection TenantConnection) PrintHelp(w io.Writer) {
 	var envHelp = map[string]string{
-		"TENANT": "Type of Tenant Service",
+		"TENANT": "Type of Tenant Service (OpenStack or Kubernetes)",
 	}
 
 	var k8sEnv = map[string]string{
-		"KUBERNETES_URL":       "URL for the Kubernetes deployment",
+		"KUBERNETES_URL":       "URL for Kubernetes deployment",
+		"KUBERNETES_CRD":       "CRD Name for Kubernetes deployment",
 		"KUBERNETES_TOKEN":     "Token for Kubernetes deployment",
 		"KUBERNETES_CERT_FILE": "Certificate path for Kubernetes deployment",
 	}

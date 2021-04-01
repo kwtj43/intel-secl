@@ -24,13 +24,14 @@ var defaultLog = log.GetDefaultLogger()
 var secLog = log.GetSecurityLogger()
 
 // VerifyQuote - Function to verify quote
-func VerifyQuote(quote string, cfg *config.Configuration, caCertDir string) (*kbs.QuoteVerifyAttributes, error) {
+func VerifyQuote(quote string, nonce string, cfg *config.Configuration, caCertDir string) (*kbs.QuoteVerifyAttributes, error) {
 	defaultLog.Trace("session/quote_verifier:VerifyQuote() Entering")
 	defer defaultLog.Trace("session/quote_verifier:VerifyQuote() Leaving")
 
 	url := cfg.Skc.SQVSUrl + constants.VerifyQuote
 	var quoteData QuoteData
 	quoteData.QuoteBlob = quote
+	quoteData.UserData = nonce
 
 	caCerts, err := crypt.GetCertsFromDir(caCertDir)
 	if err != nil {

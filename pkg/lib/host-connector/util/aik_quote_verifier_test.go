@@ -41,7 +41,7 @@ func TestVerifyQuoteAndGetPCRManifest(t *testing.T) {
 
 	tpmQuoteInBytes, err := base64.StdEncoding.DecodeString(tpmQuoteResponse.Quote)
 
-	_, err = VerifyQuoteAndGetPCRManifest(string(decodedEventLogBytes), verificationNonceInBytes, tpmQuoteInBytes, aikCertificate)
+	_, _, err = VerifyQuoteAndGetPCRManifest(string(decodedEventLogBytes), verificationNonceInBytes, tpmQuoteInBytes, aikCertificate)
 	assert.NoError(t, err)
 }
 
@@ -69,7 +69,7 @@ func TestVerifyQuoteAndGetPCRManifestInvalidNonce(t *testing.T) {
 
 	tpmQuoteInBytes, err := base64.StdEncoding.DecodeString(tpmQuoteResponse.Quote)
 
-	_, err = VerifyQuoteAndGetPCRManifest(string(decodedEventLogBytes), verificationNonceInBytes, tpmQuoteInBytes, aikCertificate)
+	_, _, err = VerifyQuoteAndGetPCRManifest(string(decodedEventLogBytes), verificationNonceInBytes, tpmQuoteInBytes, aikCertificate)
 	assert.Error(t, err)
 }
 

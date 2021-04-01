@@ -17,9 +17,8 @@ import (
 	"github.com/intel-secl/intel-secl/v3/pkg/lib/common/setup"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
+	"os"
 
-	"os/user"
-	"strconv"
 	"strings"
 )
 
@@ -35,7 +34,6 @@ func (a *App) setup(args []string) error {
 		if s == "-f" || s == "--file" {
 			if i+1 < len(args) {
 				ansFile = args[i+1]
-				break
 			} else {
 				return errors.New("Invalid answer file name")
 			}
@@ -55,7 +53,6 @@ func (a *App) setup(args []string) error {
 	if err != nil {
 		return err
 	}
-	defer a.Config.Save(constants.DefaultConfigFilePath)
 	cmd := args[1]
 	// print help and return if applicable
 	if len(args) > 2 && args[2] == "--help" {
@@ -96,7 +93,16 @@ func (a *App) setup(args []string) error {
 			return errors.New("Failed to run setup task " + cmd)
 		}
 	}
-	return a.configDirChown()
+
+	err = a.Config.Save(constants.DefaultConfigFilePath)
+	if err != nil {
+		return errors.Wrap(err, "Failed to save configuration")
+	}
+	// Containers are always run as non root users, does not require changing ownership of config directories
+	if _, err := os.Stat("/.container-env"); err == nil {
+		return nil
+	}
+	return cos.ChownDirForUser(constants.ServiceUserName, a.configDir())
 }
 
 // a helper function for setting up the task runner
@@ -108,6 +114,9 @@ func (a *App) setupTaskRunner() (*setup.Runner, error) {
 
 	if a.configuration() == nil {
 		a.Config = defaultConfig()
+	}
+	if err := a.configureLogs(false, true); err != nil {
+		return nil, err
 	}
 
 	runner := setup.NewRunner()
@@ -162,7 +171,8 @@ func (a *App) setupTaskRunner() (*setup.Runner, error) {
 		ServiceConfigPtr: &a.Config.AAS,
 		AASConfig:        serviceConfig,
 		DatabaseFactory: func() (domain.AASDatabase, error) {
-			p, err := postgres.Open(dbConf.Host, dbConf.Port, dbConf.DBName, dbConf.Username, dbConf.Password, dbConf.SSLMode, dbConf.SSLCert)
+			p, err := postgres.Open(a.Config.DB.Host, a.Config.DB.Port, a.Config.DB.DBName, a.Config.DB.Username,
+				a.Config.DB.Password, a.Config.DB.SSLMode, a.Config.DB.SSLCert)
 			if err != nil {
 				defaultLog.WithError(err).Error("Failed to open postgres connection for setup task")
 				return nil, err
@@ -172,18 +182,6 @@ func (a *App) setupTaskRunner() (*setup.Runner, error) {
 				defaultLog.WithError(err).Error("Failed to migrate database")
 			}
 			return p, nil
-		},
-		ConsoleWriter: a.consoleWriter(),
-	})
-	runner.AddTask("server", "", &setup.ServerSetup{
-		SvrConfigPtr: &a.Config.Server,
-		ServerConfig: commConfig.ServerConfig{
-			Port:              viper.GetInt("server-port"),
-			ReadTimeout:       viper.GetDuration("server-read-timeout"),
-			ReadHeaderTimeout: viper.GetDuration("server-read-header-timeout"),
-			WriteTimeout:      viper.GetDuration("server-write-timeout"),
-			IdleTimeout:       viper.GetDuration("server-idle-timeout"),
-			MaxHeaderBytes:    viper.GetInt("server-max-header-bytes"),
 		},
 		ConsoleWriter: a.consoleWriter(),
 	})
@@ -201,26 +199,19 @@ func (a *App) setupTaskRunner() (*setup.Runner, error) {
 		CmsBaseURL:    viper.GetString("cms-base-url"),
 		BearerToken:   viper.GetString("bearer-token"),
 	})
+	runner.AddTask("update-service-config", "", &tasks.UpdateServiceConfig{
+		ConsoleWriter: a.consoleWriter(),
+		ServerConfig: commConfig.ServerConfig{
+			Port:              viper.GetInt("server-port"),
+			ReadTimeout:       viper.GetDuration("server-read-timeout"),
+			ReadHeaderTimeout: viper.GetDuration("server-read-header-timeout"),
+			WriteTimeout:      viper.GetDuration("server-write-timeout"),
+			IdleTimeout:       viper.GetDuration("server-idle-timeout"),
+			MaxHeaderBytes:    viper.GetInt("server-max-header-bytes"),
+		},
+		DefaultPort: constants.DefaultPort,
+		AppConfig:   &a.Config,
+	})
 
 	return runner, nil
-}
-
-func (a *App) configDirChown() error {
-	svcUser, err := user.Lookup(constants.ServiceUserName)
-	if err != nil {
-		return errors.Wrapf(err, "configDirChown: could not find user '%s'", constants.ServiceUserName)
-	}
-	uid, err := strconv.Atoi(svcUser.Uid)
-	if err != nil {
-		return errors.Wrapf(err, "configDirChown: could not parse aas user uid '%s'", svcUser.Uid)
-	}
-	gid, err := strconv.Atoi(svcUser.Gid)
-	if err != nil {
-		return errors.Wrapf(err, "configDirChown: could not parse aas user gid '%s'", svcUser.Gid)
-	}
-	err = cos.ChownR(a.configDir(), uid, gid)
-	if err != nil {
-		return errors.Wrap(err, "Error while changing ownership of files inside config directory")
-	}
-	return nil
 }

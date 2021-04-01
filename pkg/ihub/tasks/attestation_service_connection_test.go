@@ -39,17 +39,10 @@ func TestAttestationServiceConnectionRun(t *testing.T) {
 		{
 			name: "test-attestation-service-connection valid test 1",
 			attestationService: AttestationServiceConnection{
-				AASConfig:         &config.AASConfig{},
 				AttestationConfig: &config.AttestationConfig{},
-				IHUBConfig:        &config.IHUBConfig{},
 				ConsoleWriter:     os.Stdout,
 			},
 			EnvValues: map[string]string{
-				"CMS_TLS_CERT_SHA384":     "8979827394597092",
-				"CMS_BASE_URL":            "http://localhost" + port + "/cms/v1/",
-				"IHUB_SERVICE_USERNAME":   "admin@ihub",
-				"IHUB_SERVICE_PASSWORD":   "hubAdminPass",
-				"AAS_API_URL":             "http://localhost" + port + "/aas",
 				"ATTESTATION_TYPE":        "HVS",
 				"ATTESTATION_SERVICE_URL": "http://localhost" + port + "/mtwilson/v2/",
 			},
@@ -60,17 +53,12 @@ func TestAttestationServiceConnectionRun(t *testing.T) {
 		{
 			name: "test-attestation-service-connection valid test 2",
 			attestationService: AttestationServiceConnection{
-				AASConfig:         &config.AASConfig{},
 				AttestationConfig: &config.AttestationConfig{},
-				IHUBConfig:        &config.IHUBConfig{},
 				ConsoleWriter:     os.Stdout,
 			},
 			EnvValues: map[string]string{
-				"IHUB_SERVICE_USERNAME":   "admin@ihub",
-				"IHUB_SERVICE_PASSWORD":   "hubAdminPass",
-				"AAS_API_URL":             "http://localhost" + port + "/aas",
-				"ATTESTATION_TYPE":        "HVS",
-				"ATTESTATION_SERVICE_URL": "http://localhost" + port + "/mtwilson/v2",
+				"ATTESTATION_TYPE":        "SGX",
+				"ATTESTATION_SERVICE_URL": "http://localhost" + port + "/sgx-hvs/v2/",
 			},
 
 			wantErr: false,
@@ -79,9 +67,7 @@ func TestAttestationServiceConnectionRun(t *testing.T) {
 		{
 			name: "test-attestation-service-connection negative test 1",
 			attestationService: AttestationServiceConnection{
-				AASConfig:         &config.AASConfig{},
 				AttestationConfig: &config.AttestationConfig{},
-				IHUBConfig:        &config.IHUBConfig{},
 				ConsoleWriter:     os.Stdout,
 			},
 			EnvValues: map[string]string{
@@ -95,30 +81,12 @@ func TestAttestationServiceConnectionRun(t *testing.T) {
 		{
 			name: "test-attestation-service-connection negative test 2",
 			attestationService: AttestationServiceConnection{
-				AASConfig:         &config.AASConfig{},
 				AttestationConfig: &config.AttestationConfig{},
-				IHUBConfig:        &config.IHUBConfig{},
-				ConsoleWriter:     os.Stdout,
-			},
-			EnvValues: map[string]string{
-				"IHUB_SERVICE_USERNAME": "admin@ihub",
-				"IHUB_SERVICE_PASSWORD": "hubAdminPass",
-				"AAS_API_URL":           "http://localhost" + port + "/aas",
-			},
-
-			wantErr: true,
-		},
-
-		{
-			name: "test-attestation-service-connection negative test 3",
-			attestationService: AttestationServiceConnection{
-				AASConfig:         &config.AASConfig{},
-				AttestationConfig: &config.AttestationConfig{},
-				IHUBConfig:        &config.IHUBConfig{},
 				ConsoleWriter:     os.Stdout,
 			},
 			EnvValues: map[string]string{},
-			wantErr:   true,
+
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
@@ -163,15 +131,8 @@ func TestAttestationServiceConnectionValidate(t *testing.T) {
 		{
 			name: "attestation-service-connection-validate valid test",
 			attestationService: AttestationServiceConnection{
-				AASConfig: &config.AASConfig{
-					URL: "http://localhost" + port + "/aas",
-				},
 				AttestationConfig: &config.AttestationConfig{
 					AttestationType: "HVS", AttestationURL: "http://localhost" + port + "/mtwilson/v2",
-				},
-				IHUBConfig: &config.IHUBConfig{
-					Username: "admin@ihub",
-					Password: "hubAdminPass",
 				},
 				ConsoleWriter: os.Stdout,
 			},
@@ -181,11 +142,9 @@ func TestAttestationServiceConnectionValidate(t *testing.T) {
 		{
 			name: "attestation-service-connection-validate negative test 1",
 			attestationService: AttestationServiceConnection{
-				AASConfig: &config.AASConfig{},
 				AttestationConfig: &config.AttestationConfig{
 					AttestationType: "HVS", AttestationURL: "",
 				},
-				IHUBConfig:    &config.IHUBConfig{},
 				ConsoleWriter: os.Stdout,
 			},
 
@@ -194,11 +153,9 @@ func TestAttestationServiceConnectionValidate(t *testing.T) {
 		{
 			name: "attestation-service-connection-validate negative test 2",
 			attestationService: AttestationServiceConnection{
-				AASConfig: &config.AASConfig{},
 				AttestationConfig: &config.AttestationConfig{
 					AttestationType: "SKC", AttestationURL: "",
 				},
-				IHUBConfig:    &config.IHUBConfig{},
 				ConsoleWriter: os.Stdout,
 			},
 

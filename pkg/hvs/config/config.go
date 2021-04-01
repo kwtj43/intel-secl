@@ -22,17 +22,19 @@ type Configuration struct {
 	CMSBaseURL       string `yaml:"cms-base-url" mapstructure:"cms-base-url"`
 	CmsTlsCertDigest string `yaml:"cms-tls-cert-sha384" mapstructure:"cms-tls-cert-sha384"`
 
-	HVS      HVSConfig      `yaml:"hvs" mapstructure:"hvs"`
-	AuditLog AuditLogConfig `yaml:"audit-log" mapstructure:"audit-log"`
+	HVS      commConfig.ServiceConfig `yaml:"hvs" mapstructure:"hvs"`
+	AuditLog AuditLogConfig           `yaml:"audit-log" mapstructure:"audit-log"`
 
 	TLS           commConfig.TLSCertConfig     `yaml:"tls" mapstructure:"tls"`
 	SAML          SAMLConfig                   `yaml:"saml" mapstructure:"saml"`
 	FlavorSigning commConfig.SigningCertConfig `yaml:"flavor-signing" mapstructure:"flavor-signing"`
 
-	PrivacyCA       commConfig.SelfSignedCertConfig `yaml:"privacy-ca" mapstructure:"privacy-ca"`
-	EndorsementCA   commConfig.SelfSignedCertConfig `yaml:"endorsement-ca" mapstructure:"endorsement-ca"`
-	TagCA           commConfig.SelfSignedCertConfig `yaml:"tag-ca" mapstructure:"tag-ca"`
-	AikCertValidity int                             `yaml:"aik-certificate-validity-years" mapstructure:"aik-certificate-validity-years"`
+	PrivacyCA     commConfig.SelfSignedCertConfig `yaml:"privacy-ca" mapstructure:"privacy-ca"`
+	EndorsementCA commConfig.SelfSignedCertConfig `yaml:"endorsement-ca" mapstructure:"endorsement-ca"`
+	TagCA         commConfig.SelfSignedCertConfig `yaml:"tag-ca" mapstructure:"tag-ca"`
+
+	Dek             string `yaml:"data-encryption-key" mapstructure:"data-encryption-key"`
+	AikCertValidity int    `yaml:"aik-certificate-validity-years" mapstructure:"aik-certificate-validity-years"`
 
 	Server commConfig.ServerConfig `yaml:"server" mapstructure:"server"`
 	Log    commConfig.LogConfig    `yaml:"log" mapstructure:"log"`
@@ -42,16 +44,11 @@ type Configuration struct {
 	VCSS   VCSSConfig              `yaml:"vcss" mapstructure:"vcss"`
 }
 
-type HVSConfig struct {
-	Username string `yaml:"service-username" mapstructure:"service-username"`
-	Password string `yaml:"service-password" mapstructure:"service-password"`
-	Dek      string `yaml:"data-encryption-key" mapstructure:"data-encryption-key"`
-}
-
 type FVSConfig struct {
 	NumberOfVerifiers               int  `yaml:"number-of-verifiers" mapstructure:"number-of-verifiers"`
 	NumberOfDataFetchers            int  `yaml:"number-of-data-fetchers" mapstructure:"number-of-data-fetchers"`
 	SkipFlavorSignatureVerification bool `yaml:"skip-flavor-signature-verification" mapstructure:"skip-flavor-signature-verification"`
+	HostTrustCacheThreshold         int  `yaml:"host-trust-cache-threshold" mapstructure:"host-trust-cache-threshold"`
 }
 
 type SAMLConfig struct {

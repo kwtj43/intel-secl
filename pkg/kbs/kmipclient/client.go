@@ -5,8 +5,8 @@
 package kmipclient
 
 type KmipClient interface {
-	InitializeClient(string, string, string, string, string) error
+	InitializeClient(string, string, string, string, string, string) error
 	CreateSymmetricKey(int, int) (string, error)
-	DeleteSymmetricKey(string) error
-	GetSymmetricKey(string) ([]byte, error)
+	DeleteKey(string) error
+	GetKey(string, string, int) ([]byte, error)
 }

@@ -84,7 +84,7 @@ func (controller ReportController) createReport(rsCriteria hvs.ReportCreateReque
 	defaultLog.Trace("controllers/report_controller:createReport() Entering")
 	defer defaultLog.Trace("controllers/report_controller:createReport() Leaving")
 	hsCriteria := getHostFilterCriteria(rsCriteria)
-	hosts, err := controller.HostStore.Search(&hsCriteria)
+	hosts, err := controller.HostStore.Search(&hsCriteria, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "Error while searching host")
 	}

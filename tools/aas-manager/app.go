@@ -52,30 +52,30 @@ type App struct {
 	AasAdminUserName string
 	AasAdminPassword string
 
-	HvsCN         string
-	HvsSanList    string
-	IhubCN        string
-	IhubSanList   string
-	WlsCN         string
-	WlsSanList    string
-	TaCN          string
-	TaSanList     string
-	KbsCN         string
-	KbsSanList    string
-	ScsCN         string
-	ScsSanList    string
-	ShvsCN        string
-	ShvsSanList   string
-	SqvsCN        string
-	SqvsSanList   string
-	SagentCN      string
-	SagentSanList string
-	SkcLibCN      string
+	HvsCN       string
+	HvsSanList  string
+	IhubCN      string
+	IhubSanList string
+	WlsCN       string
+	WlsSanList  string
+	TaCN        string
+	TaSanList   string
+	KbsCN       string
+	KbsSanList  string
+	ScsCN       string
+	ScsSanList  string
+	ShvsCN      string
+	ShvsSanList string
+	SqvsCN      string
+	SqvsSanList string
+	SkcLibCN    string
 
 	InstallAdminUserName    string
 	InstallAdminPassword    string
 	GlobalAdminUserName     string
 	GlobalAdminPassword     string
+	CSPAdminUsername        string
+	CSPAdminUserPassword    string
 	HvsServiceUserName      string
 	HvsServiceUserPassword  string
 	IhubServiceUserName     string
@@ -196,13 +196,11 @@ func (a *App) GetServiceUsers() []UserAndRolesCreate {
 		case "SHVS":
 			urc.Name = a.ShvsServiceUserName
 			urc.Password = a.ShvsServiceUserPassword
-			urc.Roles = append(urc.Roles, NewRole("SGX_AGENT", "HostDataReader", "", nil))
-			urc.Roles = append(urc.Roles, NewRole("SCS", "HostDataUpdater", "", nil))
-			urc.Roles = append(urc.Roles, NewRole("SCS", "HostDataReader", "", nil))
+			urc.Roles = append(urc.Roles, NewRole("SHVS", "HostsListReader", "", nil))
+			urc.Roles = append(urc.Roles, NewRole("SHVS", "HostListManager", "", nil))
 		case "SIH":
 			urc.Name = a.IhubServiceUserName
 			urc.Password = a.IhubServiceUserPassword
-			urc.Roles = append(urc.Roles, NewRole("SHVS", "HostsListReader", "", nil))
 			urc.Roles = append(urc.Roles, NewRole("SHVS", "HostDataReader", "", nil))
 		case "SKBS":
 			urc.Name = a.KbsServiceUsername
@@ -213,7 +211,6 @@ func (a *App) GetServiceUsers() []UserAndRolesCreate {
 			urc.Name = a.SKCLibUsername
 			urc.Password = a.SKCLibUserPassword
 			urc.Roles = append(urc.Roles, NewRole("KBS", "KeyTransfer", a.SKCLibRoleContext, nil))
-
 		}
 		if urc.Name != "" {
 			urs = append(urs, urc)
@@ -222,6 +219,22 @@ func (a *App) GetServiceUsers() []UserAndRolesCreate {
 	}
 	return urs
 
+}
+
+func (a *App) GetCSPAdminUser() *UserAndRolesCreate {
+
+	if a.CSPAdminUsername == "" {
+		return nil
+	}
+
+	return &UserAndRolesCreate{
+		UserCreate: aas.UserCreate{
+			Name:     a.CSPAdminUsername,
+			Password: a.CSPAdminUserPassword,
+		},
+		PrintBearerToken: true,
+		Roles:            []aas.RoleCreate{NewRole("AAS", "CustomClaimsCreator", "", []string{"custom_claims:create"})},
+	}
 }
 
 func (a *App) GetGlobalAdminUser() *UserAndRolesCreate {
@@ -292,10 +305,6 @@ func (a *App) GetSuperInstallUser() UserAndRolesCreate {
 			urc.Roles = append(urc.Roles, MakeTlsCertificateRole(a.SqvsCN, a.SqvsSanList))
 		case "SHVS":
 			urc.Roles = append(urc.Roles, MakeTlsCertificateRole(a.ShvsCN, a.ShvsSanList))
-		case "SGX_AGENT":
-			urc.Roles = append(urc.Roles, MakeTlsCertificateRole(a.SagentCN, a.SagentSanList))
-			urc.Roles = append(urc.Roles, NewRole("SHVS", "HostRegistration", "", nil))
-			urc.Roles = append(urc.Roles, NewRole("SCS", "HostDataUpdater", "", nil))
 		case "SKC-LIBRARY":
 			urc.Roles = append(urc.Roles, MakeTlsClientCertificateRole(a.SkcLibCN))
 
@@ -379,9 +388,6 @@ func (a *App) LoadAllVariables(envFile string) error {
 		{&a.ShvsCN, "SHVS_CERT_COMMON_NAME", "SHVS TLS Certificate", "SGX Host Verification Service TLS Certificate Common Name", false, false},
 		{&a.ShvsSanList, "SHVS_CERT_SAN_LIST", "", "SGX Host Verification Service TLS Certificate SAN LIST", false, false},
 
-		{&a.SagentCN, "SGX_AGENT_CERT_COMMON_NAME", "SGX_AGENT TLS Certificate", "SGX Agent TLS Certificate Common Name", false, false},
-		{&a.SagentSanList, "SGX_AGENT_CERT_SAN_LIST", "", "SGX Agent TLS Certificate SAN LIST", false, false},
-
 		{&a.SkcLibCN, "SKC_LIBRARY_CERT_COMMON_NAME", "skcuser", "SKC Library TLS Client Certificate Common Name", false, false},
 
 		{&a.GlobalAdminUserName, "GLOBAL_ADMIN_USERNAME", "", "Global Admin User Name", false, false},
@@ -415,6 +421,9 @@ func (a *App) LoadAllVariables(envFile string) error {
 		{&a.SKCLibUserPassword, "SKC_LIBRARY_PASSWORD", "", "SKC Library User Password", false, true},
 
 		{&a.SKCLibRoleContext, "SKC_LIBRARY_KEY_TRANSFER_CONTEXT", "", "SKC Library Key Transfer Role Context", false, false},
+
+		{&a.CSPAdminUsername, "CSP_ADMIN_USERNAME", "", "CSP Admin User Name", false, false},
+		{&a.CSPAdminUserPassword, "CSP_ADMIN_PASSWORD", "", "CSP Admin User Password", false, true},
 	}
 
 	hasError := false
@@ -674,6 +683,9 @@ func (a *App) Setup(args []string) error {
 		as.UsersAndRoles = append(as.UsersAndRoles, a.GetServiceUsers()...)
 		if glAdmin := a.GetGlobalAdminUser(); glAdmin != nil {
 			as.UsersAndRoles = append(as.UsersAndRoles, *glAdmin)
+		}
+		if cspAdmin := a.GetCSPAdminUser(); cspAdmin != nil {
+			as.UsersAndRoles = append(as.UsersAndRoles, *cspAdmin)
 		}
 
 	}

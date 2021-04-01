@@ -6,6 +6,7 @@ package constants
 
 const (
 	ServiceName                 = "ihub"
+	ExplicitServiceName         = "Integration Hub"
 	PollingIntervalMinutes      = 2
 	HomeDir                     = "/opt/ihub/"
 	ConfigDir                   = "/etc/ihub/"

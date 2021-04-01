@@ -46,13 +46,19 @@ type DownloadCert struct {
 
 const downloadCAEnvHelpPrompt = "Following environment variables are optionally used in "
 
-var downloadCAEnvHelp = map[string]string{
-	"CERT_FILE":     "The file to which certificate is saved",
-	"KEY_FILE":      "The file to which private key is saved",
-	"COMMON_NAME":   "The common name of signed certificate",
-	"SAN_LIST":      "Comma separated list of hostnames to add to Certificate, including IP addresses and DNS names",
-	"ISSUER":        "The issuer of signed certificate",
-	"VALIDITY_DAYS": "The validity time in days of signed certificate",
+var downloadCAEnvCommonHelp = map[string]string{
+	"CERT_FILE":   "The file to which certificate is saved",
+	"KEY_FILE":    "The file to which private key is saved",
+	"COMMON_NAME": "The common name of signed certificate",
+}
+
+var downloadTlsCAEnvHelp = map[string]string{
+	"SAN_LIST": "Comma separated list of hostnames to add to Certificate, including IP addresses and DNS names",
+}
+
+var downloadSamlCAEnvHelp = map[string]string{
+	"ISSUER":           "The issuer of signed certificate",
+	"VALIDITY_SECONDS": "The validity time in seconds of signed certificate",
 }
 
 const downloadCAEnvHelpPrompt2 = "Following environment variables are required in "
@@ -126,7 +132,16 @@ func (dc *DownloadCert) Validate() error {
 
 func (t *DownloadCert) PrintHelp(w io.Writer) {
 	PrintEnvHelp(w, downloadCAEnvHelpPrompt2+t.commandName, "", downloadCAEnvHelp2)
-	PrintEnvHelp(w, downloadCAEnvHelpPrompt+t.commandName, t.envPrefix, downloadCAEnvHelp)
+	if t.commandName == "download-cert-tls" {
+		PrintEnvHelp(w, downloadCAEnvHelpPrompt+t.commandName, t.envPrefix, downloadCAEnvCommonHelp)
+		PrintEnvHelp(w, "", t.envPrefix, downloadTlsCAEnvHelp)
+	} else if t.commandName == "download-cert-saml" {
+		PrintEnvHelp(w, downloadCAEnvHelpPrompt+t.commandName, t.envPrefix, downloadCAEnvCommonHelp)
+		PrintEnvHelp(w, "", t.envPrefix, downloadSamlCAEnvHelp)
+	} else {
+		PrintEnvHelp(w, downloadCAEnvHelpPrompt+t.commandName, t.envPrefix, downloadCAEnvCommonHelp)
+	}
+
 	fmt.Fprintln(w, "")
 }
 

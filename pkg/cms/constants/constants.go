@@ -14,6 +14,7 @@ var log = clog.GetDefaultLogger()
 const (
 	ServiceUserName                = "cms"
 	ServiceName                    = "CMS"
+	ExplicitServiceName            = "Certificate Management Service"
 	ApiVersion                     = "/v1"
 	HomeDir                        = "/opt/cms/"
 	ConfigDir                      = "/etc/cms/"

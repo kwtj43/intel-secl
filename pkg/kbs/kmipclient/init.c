@@ -11,7 +11,6 @@
  */
 
 #include "common.h"
-#include "util.h"
 #include "logging.h"
 
 char server_address[2048];
@@ -60,17 +59,6 @@ int kmipw_init(const char *address, const char *port, const char *certificate, c
     strncpy(client_certificate, certificate, strnlen(certificate, sizeof(client_certificate)-1));
     strncpy(client_key, key, strnlen(key, sizeof(client_key)-1));
     strncpy(ca_certificate, ca, strnlen(ca, sizeof(ca_certificate)-1));
-
-    SSL_CTX *ctx = NULL;
-    BIO *bio = NULL;
-    bio = initialize_tls_connection(ctx);
-    if(bio == NULL)
-    {
-        log_error("BIO_new_ssl_connect failed.");
-        ERR_print_errors_fp(log_fp);
-        goto final;
-    }
-    free_tls_connection(bio, ctx);
     result = RESULT_SUCCESS;
 
 final:

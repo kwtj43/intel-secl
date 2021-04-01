@@ -68,3 +68,9 @@ type AuthClaims struct {
 	Roles       []RoleInfo       `json:"roles"`
 	Permissions []PermissionInfo `json:"permissions,omitempty"`
 }
+
+type CustomClaims struct {
+	Subject      string                 `json:"subject"`
+	ValiditySecs int                    `json:"validity_seconds"`
+	Claims       map[string]interface{} `json:"claims"`
+}

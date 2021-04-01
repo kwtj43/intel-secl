@@ -17,6 +17,7 @@ const (
 	fvsNumberOfVerifiers               = "fvs-number-of-verifiers"
 	fvsNumberOfDataFetchers            = "fvs-number-of-data-fetchers"
 	fvsSkipFlavorSignatureVerification = "fvs-skip-flavor-signature-verification"
+	fvsHostTrustCacheThreshold         = "fvs-host-trust-cache-threshold"
 	hrrsRefreshPeriod                  = "hrrs-refresh-period"
 	vcssRefreshPeriod                  = "vcss-refresh-period"
 )
@@ -97,10 +98,11 @@ func init() {
 	viper.SetDefault(fvsNumberOfVerifiers, constants.DefaultFvsNumberOfVerifiers)
 	viper.SetDefault(fvsNumberOfDataFetchers, constants.DefaultFvsNumberOfDataFetchers)
 	viper.SetDefault(fvsSkipFlavorSignatureVerification, constants.DefaultSkipFlavorSignatureVerification)
+	viper.SetDefault(fvsHostTrustCacheThreshold, constants.DefaultHostTrustCacheThreshold)
 
-	viper.SetDefault(hrrsRefreshPeriod, hrrs.DefaultRefreshPeriod)
+	viper.SetDefault(constants.HrrsRefreshPeriod, hrrs.DefaultRefreshPeriod)
 
-	viper.SetDefault(vcssRefreshPeriod, constants.DefaultVcssRefreshPeriod)
+	viper.SetDefault(constants.VcssRefreshPeriod, constants.DefaultVcssRefreshPeriod)
 }
 
 func defaultConfig() *config.Configuration {
@@ -110,16 +112,16 @@ func defaultConfig() *config.Configuration {
 		AASApiUrl:        viper.GetString("aas-base-url"),
 		CMSBaseURL:       viper.GetString("cms-base-url"),
 		CmsTlsCertDigest: viper.GetString("cms-tls-cert-sha384"),
+		Dek:              viper.GetString("data-encryption-key"),
 		AikCertValidity:  viper.GetInt("aik-certificate-validity-years"),
 		AuditLog: config.AuditLogConfig{
 			MaxRowCount: viper.GetInt("audit-log-max-row-count"),
 			NumRotated:  viper.GetInt("audit-log-number-rotated"),
 			BufferSize:  viper.GetInt("audit-log-buffer-size"),
 		},
-		HVS: config.HVSConfig{
+		HVS: commConfig.ServiceConfig{
 			Username: viper.GetString("hvs-service-username"),
 			Password: viper.GetString("hvs-service-password"),
-			Dek:      viper.GetString("hvs-data-encryption-key"),
 		},
 		TLS: commConfig.TLSCertConfig{
 			CertFile:   viper.GetString("tls-cert-file"),
@@ -168,15 +170,16 @@ func defaultConfig() *config.Configuration {
 			Level:        viper.GetString("log-level"),
 		},
 		HRRS: hrrs.HRRSConfig{
-			RefreshPeriod: viper.GetDuration(hrrsRefreshPeriod),
+			RefreshPeriod: viper.GetDuration(constants.HrrsRefreshPeriod),
 		},
 		VCSS: config.VCSSConfig{
-			RefreshPeriod: viper.GetDuration(vcssRefreshPeriod),
+			RefreshPeriod: viper.GetDuration(constants.VcssRefreshPeriod),
 		},
 		FVS: config.FVSConfig{
 			NumberOfVerifiers:               viper.GetInt(fvsNumberOfVerifiers),
 			NumberOfDataFetchers:            viper.GetInt(fvsNumberOfDataFetchers),
 			SkipFlavorSignatureVerification: viper.GetBool(fvsSkipFlavorSignatureVerification),
+			HostTrustCacheThreshold:         viper.GetInt(fvsHostTrustCacheThreshold),
 		},
 	}
 }

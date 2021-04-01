@@ -202,7 +202,7 @@ func (controller ESXiClusterController) Delete(w http.ResponseWriter, r *http.Re
 
 	for _, name := range hostNames {
 		var hostFilterCriteria = &models.HostFilterCriteria{NameEqualTo: name}
-		hostDetails, err := controller.HController.HStore.Search(hostFilterCriteria)
+		hostDetails, err := controller.HController.HStore.Search(hostFilterCriteria, nil)
 		if err != nil {
 			defaultLog.WithError(err).WithField("id", id).Error(
 				"controllers/esxi_cluster_controller:Delete() Failed to get hosts associated with ESXi cluster")

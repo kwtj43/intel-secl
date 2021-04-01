@@ -66,7 +66,7 @@ type SwaggRolesResponse struct {
 //      schema:
 //        "$ref": "#/definitions/RoleCreateResponse"
 //
-// x-sample-call-endpoint: https://authservice.com:8444/aas/roles
+// x-sample-call-endpoint: https://authservice.com:8444/aas/v1/roles
 // x-sample-call-input: |
 //    {
 //       "name": "CertApprover",
@@ -101,7 +101,7 @@ type SwaggRolesResponse struct {
 //   in: query
 //   type: string
 // - name: context
-//   description: Context string which contains informations such as CN, SAN and certType.
+//   description: Context string which contains information such as CN, SAN and certType.
 //   in: query
 //   type: string
 // - name: contextContains
@@ -120,7 +120,7 @@ type SwaggRolesResponse struct {
 //     schema:
 //       "$ref": "#/definitions/RolesResponse"
 //
-// x-sample-call-endpoint: https://authservice.com:8444/aas/roles?service=CMS
+// x-sample-call-endpoint: https://authservice.com:8444/aas/v1/roles?service=CMS
 // x-sample-call-output: |
 //    [
 //       {
@@ -152,7 +152,7 @@ type SwaggRolesResponse struct {
 //     description: Successfully deleted the role associated with the specified role id.
 //
 // x-sample-call-endpoint: |
-//    https://authservice.com:8444/aas/roles/75fa8fe0-f2e0-436b-9cd3-ca3f4d1f9585
+//    https://authservice.com:8444/aas/v1/roles/75fa8fe0-f2e0-436b-9cd3-ca3f4d1f9585
 // x-sample-call-output: |
 //    204 No content
 // ---
@@ -181,7 +181,7 @@ type SwaggRolesResponse struct {
 //       "$ref": "#/definitions/RoleCreateResponse"
 //
 // x-sample-call-endpoint: |
-//    https://authservice.com:8444/aas/roles/75fa8fe0-f2e0-436b-9cd3-ca3f4d1f9585
+//    https://authservice.com:8444/aas/v1/roles/75fa8fe0-f2e0-436b-9cd3-ca3f4d1f9585
 // x-sample-call-output: |
 //    {
 //       "role_id": "75fa8fe0-f2e0-436b-9cd3-ca3f4d1f9585",

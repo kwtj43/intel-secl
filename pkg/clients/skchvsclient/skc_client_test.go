@@ -22,7 +22,7 @@ func TestClientGetSGXPlatformData(t *testing.T) {
 		}
 	}()
 	aasUrl, _ := url.Parse("http://localhost" + port + "/aas")
-	baseURL, _ := url.Parse("http://localhost" + port + "/sgx-hvs/v1")
+	baseURL, _ := url.Parse("http://localhost" + port + "/sgx-hvs/v2")
 
 	client1 := Client{
 		AASURL:    aasUrl,
@@ -46,7 +46,7 @@ func TestClientGetSGXPlatformData(t *testing.T) {
 			c:       client1,
 			wantErr: false,
 			args: args{
-				url: "http://localhost" + port + "/sgx-hvs/v1/platform-data",
+				url: "http://localhost" + port + "/sgx-hvs/v2/platform-data",
 			},
 		},
 	}
@@ -73,7 +73,7 @@ func TestClientGetSHVSVersion(t *testing.T) {
 	}()
 
 	aasUrl, _ := url.Parse("http://localhost" + port + "/aas")
-	baseURL, _ := url.Parse("http://localhost" + port + "/sgx-hvs/v1")
+	baseURL, _ := url.Parse("http://localhost" + port + "/sgx-hvs/v2")
 
 	client1 := Client{
 		AASURL:    aasUrl,
@@ -97,7 +97,7 @@ func TestClientGetSHVSVersion(t *testing.T) {
 			c:       client1,
 			wantErr: false,
 			args: args{
-				url: "http://localhost" + port + "/sgx-hvs/v1/noauth/version",
+				url: "http://localhost" + port + "/sgx-hvs/v2/version",
 			},
 		},
 	}

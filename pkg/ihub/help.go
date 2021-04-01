@@ -37,6 +37,7 @@ Available Tasks for setup:
 	tenant-service-connection           Establish Tenant service connection
 	create-signing-key                  Create signing key for IHUB
 	download-saml-cert                  Download SAML certificate from Attestation service
+	update-service-config               Sets or Updates the Service configuration                
 `
 
 func (app *App) printUsage() {
@@ -49,5 +50,5 @@ func (app *App) printUsageWithError(err error) {
 }
 
 func (app *App) printVersion() {
-	fmt.Fprintf(app.consoleWriter(), "Integration Hub Service %s-%s\nBuilt %s\n", version.Version, version.GitHash, version.BuildDate)
+	fmt.Fprintf(app.consoleWriter(), version.GetVersion())
 }

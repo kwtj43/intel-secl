@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SERVICE_USERNAME=cms
+USER_ID=$(id -u)
 LOG_PATH=/var/log/cms
 CONFIG_PATH=/etc/cms
 ROOT_CA_DIR=${CONFIG_PATH}/root-ca
@@ -14,14 +14,24 @@ if [ ! -f $CONFIG_PATH/.setup_done ]; then
       echo "Cannot create directory: $directory"
       exit 1
     fi
-    chown -R $SERVICE_USERNAME:$SERVICE_USERNAME $directory
+    chown -R $USER_ID:$USER_ID $directory
     chmod 700 $directory
   done
-  cms setup all
+  cms setup all --force
   if [ $? -ne 0 ]; then
     exit 1
   fi
   touch $CONFIG_PATH/.setup_done
+fi
+
+if [ ! -z $SETUP_TASK ]; then
+  IFS=',' read -ra ADDR <<< "$SETUP_TASK"
+  for task in "${ADDR[@]}"; do
+    cms setup $task --force
+    if [ $? -ne 0 ]; then
+      exit 1
+    fi
+  done
 fi
 
 cms run

@@ -13,7 +13,7 @@ import (
 
 type MockHostTrustManager struct{}
 
-func (mock *MockHostTrustManager) VerifyHost(hostId uuid.UUID, fetchHostData, preferHashMatch bool) (*models.HVSReport, error) {
+func (mock *MockHostTrustManager) VerifyHost(hostId uuid.UUID, fetchHostData bool, preferHashMatch bool) (*models.HVSReport, error) {
 	store := mocks.NewMockReportStore()
 	report, _ := store.Search(&models.ReportFilterCriteria{HostID: hostId})
 	return &report[0], nil

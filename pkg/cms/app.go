@@ -16,7 +16,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"syscall"
 	"time"
 
 	commLog "github.com/intel-secl/intel-secl/v3/pkg/lib/common/log"
@@ -198,7 +197,11 @@ func (a *App) start() error {
 	if err != nil {
 		return errors.Wrap(err, "app:start() Could not locate systemctl to start application service")
 	}
-	return syscall.Exec(systemctl, []string{"systemctl", "start", "cms"}, os.Environ())
+	cmd := exec.Command(systemctl, "start", "cms")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = os.Environ()
+	return cmd.Run()
 }
 
 func (a *App) stop() error {
@@ -207,7 +210,6 @@ func (a *App) stop() error {
 	if err != nil {
 		return errors.Wrap(err, "app:stop() Could not locate systemctl to stop application service")
 	}
-	//syscall does not return execution to the caller but replaces the current (Go) process with the process called, hence used exec
 	cmd := exec.Command(systemctl, "stop", "cms")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -221,5 +223,9 @@ func (a *App) status() error {
 	if err != nil {
 		return errors.Wrap(err, "app:status() Could not locate systemctl to check status of application service")
 	}
-	return syscall.Exec(systemctl, []string{"systemctl", "status", "cms"}, os.Environ())
+	cmd := exec.Command(systemctl, "status", "cms")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = os.Environ()
+	return cmd.Run()
 }

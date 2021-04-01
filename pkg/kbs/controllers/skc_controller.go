@@ -121,8 +121,12 @@ func (kc *SKCController) TransferApplicationKey(responseWriter http.ResponseWrit
 	}
 
 	///check for return value also.
-	isValidSession, isValidSGXAttributes := keyInfo.IsValidSession(stmChallenge)
+	isValidSession, isValidSGXAttributes, isSessionActive := keyInfo.IsValidSession(stmChallenge)
 	if isValidSession {
+		if !isSessionActive {
+			secLog.Info("controllers/skc_controller:TransferApplicationKey() SessionExpired: Session is expired.Hence key transfer unsuccessful.")
+			return nil, http.StatusUnauthorized, &commErr.ResourceError{Message: "Session is expired. Create new."}
+		}
 		if !isValidSGXAttributes {
 			var challenge kbs.NotFoundResponse ///if session is valid but sgx attributes incorrect then Not Found
 			var t kbs.Fault

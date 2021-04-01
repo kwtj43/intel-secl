@@ -6,12 +6,15 @@ package os
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"io"
 	"io/ioutil"
 	"os"
+	"os/user"
 	"path"
 	"path/filepath"
+	"strconv"
 )
 
 // ChownR method is used to change the ownership of all the file in a directory
@@ -84,4 +87,24 @@ func GetDirFileContents(dir, pattern string) ([][]byte, error) {
 		return nil, fmt.Errorf("did not find any files with matching pattern %s for directory %s", pattern, dir)
 	}
 	return dirContents, nil
+}
+
+func ChownDirForUser(serviceUserName, configDir string) error {
+	svcUser, err := user.Lookup(serviceUserName)
+	if err != nil {
+		return errors.Wrapf(err, "Could not find service user '%s'", serviceUserName)
+	}
+	uid, err := strconv.Atoi(svcUser.Uid)
+	if err != nil {
+		return errors.Wrapf(err, "Could not parse service user uid '%s'", svcUser.Uid)
+	}
+	gid, err := strconv.Atoi(svcUser.Gid)
+	if err != nil {
+		return errors.Wrapf(err, "Could not parse service user gid '%s'", svcUser.Gid)
+	}
+	err = ChownR(configDir, uid, gid)
+	if err != nil {
+		return errors.Wrap(err, "Error while changing ownership of files inside config directory")
+	}
+	return nil
 }

@@ -290,7 +290,7 @@ func MockServer(t *testing.T) (*http.Server, string) {
 		}
 	}).Methods("GET")
 
-	r.HandleFunc("/sgx-hvs/v1/platform-data", func(w http.ResponseWriter, r *http.Request) {
+	r.HandleFunc("/sgx-hvs/v2/platform-data", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
 
@@ -304,7 +304,7 @@ func MockServer(t *testing.T) (*http.Server, string) {
 		}
 	}).Methods("GET")
 
-	r.HandleFunc("/sgx-hvs/v1/platform-data?HostName=worker-node1", func(w http.ResponseWriter, r *http.Request) {
+	r.HandleFunc("/sgx-hvs/v2/platform-data?HostName=worker-node1", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
 
@@ -318,7 +318,7 @@ func MockServer(t *testing.T) (*http.Server, string) {
 		}
 	}).Methods("GET")
 
-	r.HandleFunc("/sgx-hvs/v1/noauth/version", func(w http.ResponseWriter, r *http.Request) {
+	r.HandleFunc("/sgx-hvs/v2/version", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
 	}).Methods("GET")
@@ -354,7 +354,6 @@ func ServeController(t *testing.T, r http.Handler) (*http.Server, string) {
 func SetupMockK8sConfiguration(t *testing.T, port string) *config.Configuration {
 
 	temp, _ := ioutil.TempFile("", "config.yml")
-	var err error
 	defer func() {
 		derr := os.Remove(temp.Name())
 		if derr != nil {
@@ -362,7 +361,7 @@ func SetupMockK8sConfiguration(t *testing.T, port string) *config.Configuration 
 		}
 	}()
 	c, _ := config.LoadConfiguration()
-	c.AAS.URL = "http://localhost" + port + "/aas"
+	c.AASApiUrl = "http://localhost" + port + "/aas"
 	c.IHUB.Username = "admin@hub"
 	c.IHUB.Password = "hubAdminPass"
 	c.AttestationService.AttestationType = "HVS"
@@ -373,20 +372,13 @@ func SetupMockK8sConfiguration(t *testing.T, port string) *config.Configuration 
 	c.Endpoint.CertFile = K8scertFilePath
 	c.Endpoint.Token = K8sToken
 
-	err = c.SaveConfiguration(c.ConfigFile)
-	if err != nil {
-		log.WithError(err).Errorf("Error saving configuration")
-	}
-
 	return c
-
 }
 
 //SetupMockOpenStackConfiguration setting up mock opentstack configurations
 func SetupMockOpenStackConfiguration(t *testing.T, port string) *config.Configuration {
 
 	temp, _ := ioutil.TempFile("", "config.yml")
-	var err error
 	defer func() {
 		derr := os.Remove(temp.Name())
 		if derr != nil {
@@ -394,7 +386,7 @@ func SetupMockOpenStackConfiguration(t *testing.T, port string) *config.Configur
 		}
 	}()
 	c, _ := config.LoadConfiguration()
-	c.AAS.URL = "http://localhost" + port + "/aas"
+	c.AASApiUrl = "http://localhost" + port + "/aas"
 	c.IHUB.Username = "admin@hub"
 	c.IHUB.Password = "hubAdminPass"
 	c.Endpoint.Type = "OPENSTACK"
@@ -403,10 +395,5 @@ func SetupMockOpenStackConfiguration(t *testing.T, port string) *config.Configur
 	c.Endpoint.UserName = OpenstackUserName
 	c.Endpoint.Password = OpenstackPassword
 
-	err = c.SaveConfiguration(c.ConfigFile)
-	if err != nil {
-		log.WithError(err).Errorf("Error saving configuration")
-	}
 	return c
-
 }

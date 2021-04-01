@@ -23,7 +23,7 @@ func (vhc *MockVmwareConnector) GetHostDetails() (taModel.HostInfo, error) {
 	return args.Get(0).(taModel.HostInfo), args.Error(1)
 }
 
-func (vhc *MockVmwareConnector) GetHostManifest() (types.HostManifest, error) {
+func (vhc *MockVmwareConnector) GetHostManifest([]int) (types.HostManifest, error) {
 	args := vhc.Called()
 	return args.Get(0).(types.HostManifest), args.Error(1)
 }

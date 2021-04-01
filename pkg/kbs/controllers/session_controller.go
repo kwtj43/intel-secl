@@ -15,7 +15,6 @@ import (
 	"math/big"
 	"net/http"
 	"reflect"
-	"strconv"
 
 	"github.com/intel-secl/intel-secl/v3/pkg/kbs/config"
 	"github.com/intel-secl/intel-secl/v3/pkg/kbs/constants"
@@ -38,6 +37,55 @@ func NewSessionController(kc *config.Configuration, caCertDir string) *SessionCo
 	return &SessionController{config: kc,
 		trustedCaCertDir: caCertDir,
 	}
+}
+
+// from challenge uuid remove '-' and prepare nonce
+func getNonce(challengeUUID string) ([]byte, error) {
+	decodedUUID, err := base64.StdEncoding.DecodeString(challengeUUID)
+	if err != nil {
+		return nil, errors.New("not a base64 encoded Challenge UUID")
+	}
+	nonce := make([]byte, constants.NonceLength)
+	for i, j := 0, 0; i < len(decodedUUID); i++ {
+		if decodedUUID[i] != '-' {
+			nonce[j] = decodedUUID[i]
+			j++
+		}
+	}
+	return nonce, nil
+}
+
+// remove public key blob from quote received from skc client
+// send only sgx ecdsa quote to quote verification service
+func extractKeyFromQuote(quote string) (string, []byte, error) {
+	decodedQuote, err := base64.StdEncoding.DecodeString(quote)
+	if err != nil {
+		return "", nil, errors.New("not a base64 encoded Quote")
+	}
+	// quote starts with 4 bytes for key exponent length
+	// next four bytes account for modulus length
+	pubKeyExponent := binary.LittleEndian.Uint32(decodedQuote[:])
+	pubKeyModulus := binary.LittleEndian.Uint32(decodedQuote[4:])
+	pubKeySize := int(pubKeyModulus + pubKeyExponent)
+	// 12 bytes below account for key exponent/modulus length and quote size
+	pubKeyStart := 12
+	pubKeyEnd := pubKeyStart + pubKeySize
+
+	publicKey := make([]byte, pubKeySize)
+	copy(publicKey, decodedQuote[pubKeyStart:pubKeyEnd])
+
+	newSize := len(decodedQuote) - pubKeySize - pubKeyStart
+	quoteWithoutKey := make([]byte, newSize)
+	quoteStart := pubKeyStart + pubKeySize
+	quoteEnd := len(decodedQuote)
+	copy(quoteWithoutKey, decodedQuote[quoteStart:quoteEnd])
+	encodedQuote := base64.StdEncoding.EncodeToString(quoteWithoutKey)
+	return encodedQuote, publicKey, nil
+}
+
+// public key and nonce are appended and base64 encoded as userData to QVS
+func addKeyandNonce(key []byte, nonce []byte) string {
+	return base64.StdEncoding.EncodeToString(append(key, nonce...))
 }
 
 func (sc *SessionController) Create(responseWriter http.ResponseWriter, request *http.Request) (interface{}, int, error) {
@@ -86,22 +134,33 @@ func (sc *SessionController) Create(responseWriter http.ResponseWriter, request 
 	}
 	var resAttr kbs.QuoteVerifyAttributes
 	var responseAttributes *kbs.QuoteVerifyAttributes
+	rsaKey, err := getRsaPubKey(sessionRequest.Quote)
+	if err != nil {
+		return nil, http.StatusBadRequest, &commErr.ResourceError{Message: "rsa key extraction failed"}
+	}
 	if swQuote {
-		rsaKey, err := getRsaPubKey(sessionRequest.Quote)
-		if err != nil {
-			return nil, http.StatusBadRequest, &commErr.ResourceError{Message: "rsa key extraction failed"}
-		}
-		resAttr.Status = "Success"
 		resAttr.Message = "Software(SW) Quote Verification Successful"
-		resAttr.ChallengeKeyType = "RSA"
+		resAttr.ChallengeKeyType = constants.CRYPTOALG_RSA
 		resAttr.ChallengeRsaPublicKey = string(rsaKey)
 		responseAttributes = &resAttr
 	} else {
-		responseAttributes, err = session.VerifyQuote(sessionRequest.Quote, sc.config, sc.trustedCaCertDir)
+		nonce, err := getNonce(sessionRequest.Challenge)
+		if err != nil {
+			return nil, http.StatusInternalServerError, &commErr.ResourceError{Message: "Error in fetching the nonce"}
+		}
+		Quote, Key, err := extractKeyFromQuote(sessionRequest.Quote)
+		if err != nil {
+			return nil, http.StatusInternalServerError, &commErr.ResourceError{Message: "Error while extracting public key"}
+		}
+		UserData := addKeyandNonce(Key, nonce)
+		// send ecdsa quote and user data(Enclave Public Key + nonce) to Quote Verification Service
+		responseAttributes, err = session.VerifyQuote(Quote, UserData, sc.config, sc.trustedCaCertDir)
 		if err != nil || responseAttributes == nil {
 			secLog.WithError(err).Error("controllers/session_controller:Create() Remote attestation for new session failed")
 			return nil, http.StatusBadRequest, &commErr.ResourceError{Message: "Remote attestation for new session failed"}
 		}
+		responseAttributes.ChallengeKeyType = constants.CRYPTOALG_RSA
+		responseAttributes.ChallengeRsaPublicKey = string(rsaKey)
 	}
 	keyInfo.SessionResponseMap[sessionRequest.Challenge] = *responseAttributes
 
@@ -116,7 +175,7 @@ func (sc *SessionController) Create(responseWriter http.ResponseWriter, request 
 
 	var respAttr kbs.SessionResponseAttributes
 	if responseAttributes.ChallengeKeyType == constants.CRYPTOALG_RSA {
-		wrappedKey, err := session.SessionWrapSwkWithRSAKey(responseAttributes.ChallengeKeyType, responseAttributes.ChallengeRsaPublicKey, sessionObj.SWK)
+		wrappedKey, err := session.SessionWrapSwkWithRSAKey(responseAttributes.ChallengeKeyType, rsaKey, sessionObj.SWK)
 		if err != nil {
 			secLog.Error("controllers/session_controller:Create() Unable to wrap the swk with rsa key")
 			return nil, http.StatusInternalServerError, &commErr.ResourceError{Message: "Error in wrapping SWK key with RSA key"}
@@ -169,10 +228,10 @@ func checkAndvalidateSwQuote(sessionRequest kbs.SessionManagementAttributes) (bo
 	if err != nil {
 		return false, errors.New("not a base64 encoded quote")
 	}
-	quoteTypeEnum := binary.LittleEndian.Uint32(decodedQuote[12:])
+	quoteSize := binary.LittleEndian.Uint32(decodedQuote[8:])
 
 	var quoteType string
-	if quoteTypeEnum == 2 {
+	if quoteSize == 0 {
 		quoteType = "SW"
 	} else {
 		quoteType = "SGX"
@@ -198,13 +257,8 @@ func checkAndvalidateSwQuote(sessionRequest kbs.SessionManagementAttributes) (bo
 	return false, nil
 }
 
-// getRsaPubKey extracts the modulus/exponent values and public key blob  from the quote header
-// and generates a public key object. A SW Quote is structured as below
-// major number : 4 bytes
-// minor number : 4 bytes
-// quote size   : 4 bytes
-// quote type   : 4 bytes (either sw/sgx)
-// key type     : 4 bytes (only rsa for now)
+// getRsaPubKey extracts the modulus/exponent values and public key blob
+// from the quote and generates a public key object.
 // pubkey exponent len : 4 bytes
 // pubkey modulus len : 4 bytes
 // quote blob  : 4 bytes
@@ -219,20 +273,24 @@ func getRsaPubKey(quoteStr string) ([]byte, error) {
 		return nil, errors.New("not a base64 encoded quote")
 	}
 
-	expoLen := binary.LittleEndian.Uint32(quote[20:])
-	modulusStrOffset := 32 + expoLen
+	pubKeyExponent := binary.LittleEndian.Uint32(quote[:])
+	pubKeyModulus := binary.LittleEndian.Uint32(quote[4:])
+	pubKeySize := int(pubKeyModulus + pubKeyExponent)
+
+	// first 12 byted contain key exponent/modulus length and quote size
+	// after that the public key blob starts
+	pubKeyStart := 12
+	pubKeyEnd := pubKeyStart + pubKeySize
+
+	publicKey := make([]byte, pubKeySize)
+	copy(publicKey, quote[pubKeyStart:pubKeyEnd])
 
 	n := big.Int{}
-	n.SetBytes(quote[modulusStrOffset:])
+	n.SetBytes(publicKey[pubKeyExponent:])
 	eb := big.Int{}
-	eb.SetBytes(quote[32 : 32+expoLen])
+	eb.SetBytes(publicKey[:pubKeyExponent])
 
-	ex, err := strconv.Atoi(eb.String())
-	if err != nil {
-		return nil, errors.Wrap(err, "GetRsaPubKey: Strconv to int")
-	}
-
-	pubKey := rsa.PublicKey{N: &n, E: int(ex)}
+	pubKey := rsa.PublicKey{N: &n, E: int(eb.Int64())}
 
 	pubKeyBytes, err := x509.MarshalPKIXPublicKey(&pubKey)
 	if err != nil {

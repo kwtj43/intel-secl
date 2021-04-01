@@ -39,10 +39,10 @@ func (app *App) startDaemon() error {
 	}
 	app.configureLogs(configuration.Log.EnableStdout, true)
 
-	if configuration.IHUB.PollIntervalMinutes < constants.PollingIntervalMinutes {
+	if configuration.PollIntervalMinutes < constants.PollingIntervalMinutes {
 		secLog.Infof("startService:startDaemon() POLL_INTERVAL_MINUTES value is less than %v mins. Setting it to "+
 			"%v mins", constants.PollingIntervalMinutes, constants.PollingIntervalMinutes)
-		configuration.IHUB.PollIntervalMinutes = constants.PollingIntervalMinutes
+		configuration.PollIntervalMinutes = constants.PollingIntervalMinutes
 	}
 
 	var k k8splugin.KubernetesDetails
@@ -139,10 +139,10 @@ func (app *App) startDaemon() error {
 	// invoke for the first time before scheduling regular runs
 	app.kickOffPlugins(k, o)
 
-	tick := time.NewTicker(time.Minute * time.Duration(configuration.IHUB.PollIntervalMinutes))
+	tick := time.NewTicker(time.Minute * time.Duration(configuration.PollIntervalMinutes))
 	go func() {
 		secLog.Infof("startService:startDaemon() Scheduler will start at : %v", time.Now().Local().Add(
-			time.Minute*time.Duration(configuration.IHUB.PollIntervalMinutes)))
+			time.Minute*time.Duration(configuration.PollIntervalMinutes)))
 		for t := range tick.C {
 			secLog.Debugf("startService:startDaemon() Scheduler started at : %v", t)
 			app.kickOffPlugins(k, o)

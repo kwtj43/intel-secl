@@ -150,6 +150,7 @@ func (dm *DirectoryManager) RegisterKey(request *kbs.KeyRequest) (*models.KeyAtt
 	keyAttributes := &models.KeyAttributes{
 		ID:               newUuid,
 		Algorithm:        request.KeyInformation.Algorithm,
+		KeyLength:        request.KeyInformation.KeyLength,
 		KeyData:          key,
 		PublicKey:        publicKey,
 		PrivateKey:       privateKey,

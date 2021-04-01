@@ -14,6 +14,7 @@ import (
 	"github.com/intel-secl/intel-secl/v3/pkg/clients/vs"
 	"github.com/intel-secl/intel-secl/v3/pkg/ihub/config"
 	testutility "github.com/intel-secl/intel-secl/v3/pkg/ihub/test"
+	commConfig "github.com/intel-secl/intel-secl/v3/pkg/lib/common/config"
 	"github.com/intel-secl/intel-secl/v3/pkg/lib/saml"
 )
 
@@ -63,9 +64,7 @@ func TestGetHostReports(t *testing.T) {
 			args: args{
 				h: invalidHostID,
 				c: &config.Configuration{
-					AAS: config.AASConfig{
-						URL: "http://localhost" + portString + "/aas",
-					},
+					AASApiUrl: "http://localhost" + portString + "/aas",
 					AttestationService: config.AttestationConfig{
 						AttestationType: "HVS", AttestationURL: "http://localhost" + portString + "/mtwilson/v2/invalid",
 					},
@@ -76,8 +75,7 @@ func TestGetHostReports(t *testing.T) {
 						UserName: testutility.OpenstackUserName,
 						Password: testutility.OpenstackPassword,
 					},
-
-					IHUB: config.IHUBConfig{
+					IHUB: commConfig.ServiceConfig{
 						Username: testutility.IhubServiceUserName,
 						Password: testutility.IhubServicePassword,
 					},
@@ -90,7 +88,7 @@ func TestGetHostReports(t *testing.T) {
 			args: args{
 				h: hostID,
 				c: &config.Configuration{
-					AAS: config.AASConfig{URL: "http://localhost" + portString + "/aas"},
+					AASApiUrl: "http://localhost" + portString + "/aas",
 					AttestationService: config.AttestationConfig{
 						AttestationType: "HVS", AttestationURL: "http://localhost" + portString + "/mtwilson/v2",
 					},
@@ -101,7 +99,7 @@ func TestGetHostReports(t *testing.T) {
 						UserName: testutility.OpenstackUserName,
 						Password: testutility.OpenstackPassword,
 					},
-					IHUB: config.IHUBConfig{
+					IHUB: commConfig.ServiceConfig{
 						Username: testutility.IhubServiceUserName,
 						Password: testutility.IhubServicePassword,
 					},
@@ -116,10 +114,7 @@ func TestGetHostReports(t *testing.T) {
 			args: args{
 				h: hostID,
 				c: &config.Configuration{
-					AAS: config.AASConfig{
-						URL: "http://localhost" + portString + "/aas",
-					},
-
+					AASApiUrl: "http://localhost" + portString + "/aas",
 					AttestationService: config.AttestationConfig{
 						AttestationType: "HVS", AttestationURL: "mtwilson/v2"},
 					Endpoint: config.Endpoint{
@@ -176,14 +171,11 @@ func TestGetCaCerts(t *testing.T) {
 			args: args{
 				domain: "SAML",
 				configuration: &config.Configuration{
-					AAS: config.AASConfig{
-						URL: "http://localhost" + portString + "/aas",
-					},
-					IHUB: config.IHUBConfig{
+					AASApiUrl: "http://localhost" + portString + "/aas",
+					IHUB: commConfig.ServiceConfig{
 						Username: "admin@hub",
 						Password: "hubAdminPass",
 					},
-
 					AttestationService: config.AttestationConfig{
 						AttestationType: "HVS",
 						AttestationURL:  "",
@@ -198,10 +190,8 @@ func TestGetCaCerts(t *testing.T) {
 			args: args{
 				domain: "SAML",
 				configuration: &config.Configuration{
-					AAS: config.AASConfig{
-						URL: "http://localhost" + portString + "/aas",
-					},
-					IHUB: config.IHUBConfig{
+					AASApiUrl: "http://localhost" + portString + "/aas",
+					IHUB: commConfig.ServiceConfig{
 						Username: "admin@hub",
 						Password: "hubAdminPass",
 					},
@@ -286,10 +276,8 @@ func Test_initializeClient(t *testing.T) {
 			args: args{
 				certDirectory: "",
 				con: &config.Configuration{
-					AAS: config.AASConfig{
-						URL: "http://localhost" + portString + "/aas",
-					},
-					IHUB: config.IHUBConfig{
+					AASApiUrl: "http://localhost" + portString + "/aas",
+					IHUB: commConfig.ServiceConfig{
 						Username: "admin@hub",
 						Password: "hubAdminPass",
 					},

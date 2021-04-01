@@ -100,7 +100,7 @@ type SwaggUserRolesResponse struct {
 //     schema:
 //       "$ref": "#/definitions/UserCreateResponse"
 //
-// x-sample-call-endpoint: https://authservice.com:8444/aas/users
+// x-sample-call-endpoint: https://authservice.com:8444/aas/v1/users
 // x-sample-call-input: |
 //    {
 //       "username" : "vsServiceUser",
@@ -135,7 +135,7 @@ type SwaggUserRolesResponse struct {
 //     schema:
 //       "$ref": "#/definitions/UsersResponse"
 //
-// x-sample-call-endpoint: https://authservice.com:8444/aas/users?name=vsServiceUser
+// x-sample-call-endpoint: https://authservice.com:8444/aas/v1/users?name=vsServiceUser
 // x-sample-call-output: |
 //    [
 //       {
@@ -169,7 +169,7 @@ type SwaggUserRolesResponse struct {
 //       "$ref": "#/definitions/UserCreateResponse"
 //
 // x-sample-call-endpoint: |
-//    https://authservice.com:8444/aas/users/1fdb39de-7bf4-440e-ad05-286eca933f78
+//    https://authservice.com:8444/aas/v1/users/1fdb39de-7bf4-440e-ad05-286eca933f78
 // x-sample-call-output: |
 //   {
 //      "user_id": "1fdb39de-7bf4-440e-ad05-286eca933f78",
@@ -206,7 +206,7 @@ type SwaggUserRolesResponse struct {
 //       Successfully updated the username and password associated with the specified user id.
 //
 // x-sample-call-endpoint: |
-//    https://authservice.com:8444/aas/users/1fdb39de-7bf4-440e-ad05-286eca933f78
+//    https://authservice.com:8444/aas/v1/users/1fdb39de-7bf4-440e-ad05-286eca933f78
 // x-sample-call-input: |
 //    {
 //       "username" : "vsServiceUser",
@@ -236,7 +236,7 @@ type SwaggUserRolesResponse struct {
 //     description: Successfully deleted the user.
 //
 // x-sample-call-endpoint: |
-//    https://authservice.com:8444/aas/users/1fdb39de-7bf4-440e-ad05-286eca933f78
+//    https://authservice.com:8444/aas/v1/users/1fdb39de-7bf4-440e-ad05-286eca933f78
 // x-sample-call-output: |
 //    204 No content
 // ---
@@ -265,7 +265,7 @@ type SwaggUserRolesResponse struct {
 //       "$ref": "#/definitions/UserPermissions"
 //
 // x-sample-call-endpoint: |
-//    https://authservice.com:8444/aas/users/1fdb39de-7bf4-440e-ad05-286eca933f78/permissions
+//    https://authservice.com:8444/aas/v1/users/1fdb39de-7bf4-440e-ad05-286eca933f78/permissions
 // x-sample-call-output: |
 //    [
 //       {
@@ -295,7 +295,7 @@ type SwaggUserRolesResponse struct {
 //   '200':
 //     description: Successfully updated the user password.
 //
-// x-sample-call-endpoint: https://authservice.com:8444/aas/users/changepassword
+// x-sample-call-endpoint: https://authservice.com:8444/aas/v1/users/changepassword
 // x-sample-call-input: |
 //    {
 //        "old_password": "vsServicePass",
@@ -338,7 +338,7 @@ type SwaggUserRolesResponse struct {
 //     description: Successfully assigned the roles to the user.
 //
 // x-sample-call-endpoint: |
-//    https://authservice.com:8444/aas/users/1fdb39de-7bf4-440e-ad05-286eca933f78/roles
+//    https://authservice.com:8444/aas/v1/users/1fdb39de-7bf4-440e-ad05-286eca933f78/roles
 // x-sample-call-input: |
 //    {
 //       "role_ids" : [ "75fa8fe0-f2e0-436b-9cd3-ca3f4d1f9585" ]
@@ -392,7 +392,7 @@ type SwaggUserRolesResponse struct {
 //      "$ref": "#/definitions/UserRolesResponse"
 //
 // x-sample-call-endpoint: |
-//    https://authservice.com:8444/aas/users/1fdb39de-7bf4-440e-ad05-286eca933f78/roles?service=CMS
+//    https://authservice.com:8444/aas/v1/users/1fdb39de-7bf4-440e-ad05-286eca933f78/roles?service=CMS
 // x-sample-call-output: |
 //    [
 //       {
@@ -433,7 +433,7 @@ type SwaggUserRolesResponse struct {
 //      "$ref": "#/definitions/UserRoleResponse"
 //
 // x-sample-call-endpoint: |
-//    https://authservice.com:8444/aas/users/1fdb39de-7bf4-440e-ad05-286eca933f78/roles/75fa8fe0-f2e0-436b-9cd3-ca3f4d1f9585
+//    https://authservice.com:8444/aas/v1/users/1fdb39de-7bf4-440e-ad05-286eca933f78/roles/75fa8fe0-f2e0-436b-9cd3-ca3f4d1f9585
 // x-sample-call-output: |
 //    {
 //       "role_id": "75fa8fe0-f2e0-436b-9cd3-ca3f4d1f9585",
@@ -468,7 +468,7 @@ type SwaggUserRolesResponse struct {
 //     description: Successfully removed the specified role associated with user.
 //
 // x-sample-call-endpoint: |
-//    https://authservice.com:8444/aas/users/1fdb39de-7bf4-440e-ad05-286eca933f78/roles/75fa8fe0-f2e0-436b-9cd3-ca3f4d1f9585
+//    https://authservice.com:8444/aas/v1/users/1fdb39de-7bf4-440e-ad05-286eca933f78/roles/75fa8fe0-f2e0-436b-9cd3-ca3f4d1f9585
 // x-sample-call-output: |
 //    204 No content
 // ---

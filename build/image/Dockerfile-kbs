@@ -1,13 +1,20 @@
-FROM centos:8
+#  Copyright (C) 2021 Intel Corporation
+#  SPDX-License-Identifier: BSD-3-Clause
 
-RUN useradd -u 1001 --comment "Key Broker Service" --home /opt/kbs  --shell /bin/false kbs
+FROM centos:8
 
 COPY cmd/kbs/kbs /usr/bin/kbs
 
-COPY build/image/libkmip.so.0.2 /tmp/libkmip.so.0.2
+COPY build/image/libkmip.so.0.2 /usr/lib64/libkmip.so.0.2
 
-COPY build/image/entrypoint-kbs.sh /entrypoint-kbs.sh
+RUN chmod 755 /usr/lib64/libkmip.so.0.2
 
-RUN chmod +x /entrypoint-kbs.sh
+RUN ln -sfT /usr/lib64/libkmip.so.0.2 /usr/lib64/libkmip.so
 
-ENTRYPOINT ["/entrypoint-kbs.sh"]
+RUN ln -sfT /usr/lib64/libkmip.so.0.2  /usr/lib64/libkmip.so.0
+
+COPY build/image/entrypoint-kbs.sh /entrypoint.sh
+
+RUN touch /.container-env && chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]

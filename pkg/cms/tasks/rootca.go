@@ -32,7 +32,7 @@ type RootCa struct {
 	commandName string
 }
 
-const rootCAEnvHelpPrompt = "Following environment variables are required for root_ca setup:"
+const rootCAEnvHelpPrompt = "Following environment variables are required for root-ca setup:"
 
 var rootCAEnvHelp = map[string]string{
 	"CMS_CA_CERT_VALIDITY": "CA Certificate Validity",

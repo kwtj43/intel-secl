@@ -58,26 +58,6 @@ func NewJWTClient(url string) *jwtClient {
 	return &ret
 }
 
-func (c *jwtClient) GetJWTSigningCert() ([]byte, error) {
-
-	jwtCertUrl := clients.ResolvePath(c.BaseURL, "noauth/jwtCert")
-	req, _ := http.NewRequest(http.MethodGet, jwtCertUrl, nil)
-	req.Header.Set("Accept", "application/x-pem-file")
-
-	if c.HTTPClient == nil {
-		return nil, errors.New("jwtClient.GetJWTSigningCert: HTTPClient should not be null")
-	}
-	rsp, err := c.HTTPClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if rsp.StatusCode != http.StatusOK {
-		ErrHTTPGetJWTCert.RetCode = rsp.StatusCode
-		return nil, ErrHTTPGetJWTCert
-	}
-	return ioutil.ReadAll(rsp.Body)
-}
-
 func (c *jwtClient) AddUser(username, password string) {
 	c.users[username] = &types.UserCred{
 		UserName: username,

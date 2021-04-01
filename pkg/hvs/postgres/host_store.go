@@ -5,6 +5,7 @@
 package postgres
 
 import (
+	"database/sql"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/intel-secl/intel-secl/v3/pkg/hvs/domain/models"
@@ -22,6 +23,10 @@ type HostStore struct {
 func NewHostStore(store *DataStore) *HostStore {
 	return &HostStore{store}
 }
+
+const (
+	hostFields = "host.id, host.name, host.description, host.connection_string, host.hardware_uuid"
+)
 
 func (hs *HostStore) Create(h *hvs.Host) (*hvs.Host, error) {
 	defaultLog.Trace("postgres/host_store:Create() Entering")
@@ -49,15 +54,44 @@ func (hs *HostStore) Create(h *hvs.Host) (*hvs.Host, error) {
 	return h, nil
 }
 
-func (hs *HostStore) Retrieve(id uuid.UUID) (*hvs.Host, error) {
+func (hs *HostStore) Retrieve(id uuid.UUID, criteria *models.HostInfoFetchCriteria) (*hvs.Host, error) {
 	defaultLog.Trace("postgres/host_store:Retrieve() Entering")
 	defer defaultLog.Trace("postgres/host_store:Retrieve() Leaving")
 
+	tx := hs.Store.Db.Model(&host{}).Where(&host{Id: id})
+
 	h := hvs.Host{}
-	row := hs.Store.Db.Model(&host{}).Where(&host{Id: id}).Row()
-	if err := row.Scan(&h.Id, &h.HostName, &h.Description, &h.ConnectionString, &h.HardwareUuid); err != nil {
-		return nil, errors.Wrap(err, "postgres/host_store:Retrieve() failed to scan record")
+	report := hvs.TrustReport{}
+	connectionStatus := hvs.HostStatusInformation{}
+
+	if criteria != nil && (criteria.GetReport || criteria.GetHostStatus) {
+		row := buildInfoFetchQuery(tx, criteria, nil).Row()
+		if criteria.GetReport && criteria.GetHostStatus {
+			if err := row.Scan(&h.Id, &h.HostName, &h.Description, &h.ConnectionString, &h.HardwareUuid,
+				(*PGTrustReport)(&report), (*PGHostStatusInformation)(&connectionStatus)); err != nil {
+				return nil, errors.Wrap(err, "postgres/host_store:Retrieve() failed to scan record")
+			}
+			h.Report = &report
+			h.ConnectionStatus = &connectionStatus
+		} else if criteria.GetReport {
+			if err := row.Scan(&h.Id, &h.HostName, &h.Description, &h.ConnectionString, &h.HardwareUuid,
+				(*PGTrustReport)(&report)); err != nil {
+				return nil, errors.Wrap(err, "postgres/host_store:Retrieve() failed to scan record")
+			}
+			h.Report = &report
+		} else if criteria.GetHostStatus {
+			if err := row.Scan(&h.Id, &h.HostName, &h.Description, &h.ConnectionString, &h.HardwareUuid,
+				(*PGHostStatusInformation)(&connectionStatus)); err != nil {
+				return nil, errors.Wrap(err, "postgres/host_store:Retrieve() failed to scan record")
+			}
+			h.ConnectionStatus = &connectionStatus
+		}
+	} else {
+		if err := tx.Row().Scan(&h.Id, &h.HostName, &h.Description, &h.ConnectionString, &h.HardwareUuid); err != nil {
+			return nil, errors.Wrap(err, "postgres/host_store:Retrieve() failed to scan record")
+		}
 	}
+
 	return &h, nil
 }
 
@@ -106,14 +140,18 @@ func (hs *HostStore) DeleteByHostName(hostName string) error {
 	return nil
 }
 
-func (hs *HostStore) Search(criteria *models.HostFilterCriteria) ([]*hvs.Host, error) {
+func (hs *HostStore) Search(filterCriteria *models.HostFilterCriteria, infoFetchCriteria *models.HostInfoFetchCriteria) ([]*hvs.Host, error) {
 	defaultLog.Trace("postgres/host_store:Search() Entering")
 	defer defaultLog.Trace("postgres/host_store:Search() Leaving")
 
-	tx := buildHostSearchQuery(hs.Store.Db, criteria)
+	tx := buildHostSearchQuery(hs.Store.Db, filterCriteria)
 	if tx == nil {
 		return nil, errors.New("postgres/host_store:Search() Unexpected Error. Could not build" +
 			" a gorm query object.")
+	}
+
+	if infoFetchCriteria != nil && (infoFetchCriteria.GetTrustStatus || infoFetchCriteria.GetHostStatus) {
+		tx = buildInfoFetchQuery(tx, infoFetchCriteria, filterCriteria)
 	}
 
 	rows, err := tx.Rows()
@@ -128,12 +166,16 @@ func (hs *HostStore) Search(criteria *models.HostFilterCriteria) ([]*hvs.Host, e
 	}()
 
 	hosts := []*hvs.Host{}
-	for rows.Next() {
-		host := hvs.Host{}
-		if err := rows.Scan(&host.Id, &host.HostName, &host.Description, &host.ConnectionString, &host.HardwareUuid); err != nil {
-			return nil, errors.Wrap(err, "postgres/host_store:Search() failed to scan record")
+	if infoFetchCriteria != nil && (infoFetchCriteria.GetTrustStatus || infoFetchCriteria.GetHostStatus) {
+		hosts, err = getAdditionalHostInfo(infoFetchCriteria, rows)
+	} else {
+		for rows.Next() {
+			host := hvs.Host{}
+			if err := rows.Scan(&host.Id, &host.HostName, &host.Description, &host.ConnectionString, &host.HardwareUuid); err != nil {
+				return nil, errors.Wrap(err, "postgres/host_store:Search() failed to scan record")
+			}
+			hosts = append(hosts, &host)
 		}
-		hosts = append(hosts, &host)
 	}
 	return hosts, nil
 }
@@ -148,7 +190,9 @@ func buildHostSearchQuery(tx *gorm.DB, criteria *models.HostFilterCriteria) *gor
 	}
 
 	tx = tx.Model(&host{})
+
 	if criteria == nil || reflect.DeepEqual(*criteria, models.HostFilterCriteria{}) {
+		tx = tx.Order("name asc")
 		return tx
 	}
 
@@ -162,9 +206,76 @@ func buildHostSearchQuery(tx *gorm.DB, criteria *models.HostFilterCriteria) *gor
 		tx = tx.Where("hardware_uuid = ?", criteria.HostHardwareId)
 	} else if criteria.IdList != nil {
 		tx = tx.Where("id IN (?)", criteria.IdList)
+	} else if criteria.Trusted != nil {
+		tx = tx.Joins("join report on report.host_id = host.id AND report.trusted = ?", criteria.Trusted)
 	}
 
+	if criteria.OrderBy == models.Descending {
+		tx = tx.Order("name desc")
+	} else {
+		tx = tx.Order("name asc")
+	}
 	return tx
+}
+
+func buildInfoFetchQuery(tx *gorm.DB, infoFetchCriteria *models.HostInfoFetchCriteria,
+	filterCriteria *models.HostFilterCriteria) *gorm.DB {
+	defaultLog.Trace("postgres/host_store:buildInfoFetchQuery() Entering")
+	defer defaultLog.Trace("postgres/host_store:buildInfoFetchQuery() Leaving")
+
+	if infoFetchCriteria.GetTrustStatus && infoFetchCriteria.GetHostStatus {
+		tx = tx.Select(hostFields + ", report.trusted, host_status.status").Joins(
+			"join host_status on host_status.host_id = host.id")
+		if filterCriteria.Trusted == nil {
+			tx = tx.Joins("join report on report.host_id = host.id")
+		}
+	} else if infoFetchCriteria.GetTrustStatus {
+		tx = tx.Select(hostFields + ", report.trusted")
+		if filterCriteria.Trusted == nil {
+			tx = tx.Joins("join report on report.host_id = host.id")
+		}
+	} else if infoFetchCriteria.GetReport && infoFetchCriteria.GetHostStatus {
+		tx = tx.Select(hostFields + ", report.trust_report, host_status.status").
+			Joins("join report on report.host_id = host.id").
+			Joins("join host_status on host_status.host_id = host.id")
+	} else if infoFetchCriteria.GetHostStatus {
+		tx = tx.Select(hostFields + ", host_status.status").Joins("join host_status on host_status.host_id = host.id")
+	} else if infoFetchCriteria.GetReport {
+		tx = tx.Select(hostFields + ", report.trust_report").
+			Joins("join report on report.host_id = host.id")
+	}
+	return tx
+}
+
+func getAdditionalHostInfo(criteria *models.HostInfoFetchCriteria, rows *sql.Rows) ([]*hvs.Host, error) {
+	defaultLog.Trace("postgres/host_store:getAdditionalHostInfo() Entering")
+	defer defaultLog.Trace("postgres/host_store:getAdditionalHostInfo() Leaving")
+
+	hosts := []*hvs.Host{}
+	for rows.Next() {
+		host := hvs.Host{}
+		connectionStatus := hvs.HostStatusInformation{}
+		if criteria.GetTrustStatus && criteria.GetHostStatus {
+			if err := rows.Scan(&host.Id, &host.HostName, &host.Description, &host.ConnectionString, &host.HardwareUuid,
+				&host.Trusted, (*PGHostStatusInformation)(&connectionStatus)); err != nil {
+				return nil, errors.Wrap(err, "postgres/host_store:Search() failed to scan record")
+			}
+			host.ConnectionStatus = &connectionStatus
+		} else if criteria.GetTrustStatus {
+			if err := rows.Scan(&host.Id, &host.HostName, &host.Description, &host.ConnectionString, &host.HardwareUuid,
+				&host.Trusted); err != nil {
+				return nil, errors.Wrap(err, "postgres/host_store:Search() failed to scan record")
+			}
+		} else if criteria.GetHostStatus {
+			if err := rows.Scan(&host.Id, &host.HostName, &host.Description, &host.ConnectionString, &host.HardwareUuid,
+				(*PGHostStatusInformation)(&connectionStatus)); err != nil {
+				return nil, errors.Wrap(err, "postgres/host_store:Search() failed to scan record")
+			}
+			host.ConnectionStatus = &connectionStatus
+		}
+		hosts = append(hosts, &host)
+	}
+	return hosts, nil
 }
 
 func (hs *HostStore) AddFlavorgroups(hId uuid.UUID, fgIds []uuid.UUID) error {

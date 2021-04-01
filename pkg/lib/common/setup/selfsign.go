@@ -30,12 +30,11 @@ const defaultValidityDays = 365
 const selfSignEnvHelpPrompt = "Following environment variables are optionally used in "
 
 var selfSignEnvHelp = map[string]string{
-	"CERT_FILE":     "The file to which certificate is saved",
-	"KEY_FILE":      "The file to which private key is saved",
-	"COMMON_NAME":   "The common name of signed certificate",
-	"SAN_LIST":      "Comma separated list of hostnames to add to Certificate, including IP addresses and DNS names",
-	"ISSUER":        "The issuer of signed certificate",
-	"VALIDITY_DAYS": "The validity time in days of signed certificate",
+	"CERT_FILE":      "The file to which certificate is saved",
+	"KEY_FILE":       "The file to which private key is saved",
+	"COMMON_NAME":    "The common name of signed certificate",
+	"ISSUER":         "The issuer of signed certificate",
+	"VALIDITY_YEARS": "The validity time in years of signed certificate",
 }
 
 type SelfSignedCert struct {
@@ -143,7 +142,7 @@ func (t *SelfSignedCert) Run() error {
 
 // nothing to print for this task
 func (t *SelfSignedCert) PrintHelp(w io.Writer) {
-	PrintEnvHelp(w, selfSignEnvHelpPrompt+t.commandName, "", selfSignEnvHelp)
+	PrintEnvHelp(w, selfSignEnvHelpPrompt+t.commandName, t.envPrefix, selfSignEnvHelp)
 	fmt.Fprintln(w, "")
 }
 

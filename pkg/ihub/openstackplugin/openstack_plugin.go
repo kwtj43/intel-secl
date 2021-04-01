@@ -149,7 +149,7 @@ func filterHostReportsForOpenstack(hostDetails *openstackHostDetails, openstackD
 			hostDetails.SgxEnabled = sgxData[0].SgxEnabled
 			hostDetails.SgxSupported = sgxData[0].SgxSupported
 			hostDetails.TcbUpToDate = sgxData[0].TcbUpToDate
-			util.EvaluateValidTo(sgxData[0].ValidTo, openstackDetails.Config.IHUB.PollIntervalMinutes)
+			util.EvaluateValidTo(sgxData[0].ValidTo, openstackDetails.Config.PollIntervalMinutes)
 			hostDetails.ValidTo = sgxData[0].ValidTo
 		} else {
 			return errors.Errorf("openstackplugin/openstack_plugin:FilterHostReportsForOpenstack() : SGX Platform Data response has invalid length %d", len(sgxData))

@@ -21,4 +21,6 @@ const (
 	UserRoleRetrieve = "user_roles:retrieve"
 	UserRoleSearch   = "user_roles:search"
 	UserRoleDelete   = "user_roles:delete"
+
+	CustomClaimsCreate = "custom_claims:create"
 )

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SERVICE_USERNAME=aas
+USER_ID=$(id -u)
 COMPONENT_NAME=authservice
 LOG_PATH=/var/log/$COMPONENT_NAME/
 CONFIG_PATH=/etc/$COMPONENT_NAME/
@@ -15,13 +15,24 @@ if [ ! -f $CONFIG_PATH/.setup_done ]; then
       echo "Cannot create directory: $directory"
       exit 1
     fi
-    chown -R $SERVICE_USERNAME:$SERVICE_USERNAME $directory
+    chown -R $USER_ID:$USER_ID $directory
     chmod 700 $directory
   done
-  aas setup all
+  aas setup all --force
   if [ $? -ne 0 ]; then
     exit 1
   fi
   touch $CONFIG_PATH/.setup_done
 fi
+
+if [ ! -z $SETUP_TASK ]; then
+  IFS=',' read -ra ADDR <<< "$SETUP_TASK"
+  for task in "${ADDR[@]}"; do
+    aas setup $task --force
+    if [ $? -ne 0 ]; then
+      exit 1
+    fi
+  done
+fi
+
 aas run

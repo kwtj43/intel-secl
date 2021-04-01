@@ -42,6 +42,14 @@ var defaultFlavorTemplateNames = []string{
 
 func (t *CreateDefaultFlavorTemplate) Run() error {
 	var templates []hvs.FlavorTemplate
+	var ftList []hvs.FlavorTemplate
+
+	if t.TemplateStore == nil {
+		err := t.flavorTemplateStore()
+		if err != nil {
+			return errors.Wrap(err, "Failed to initialize flavor template store instance")
+		}
+	}
 
 	if len(t.deleted) != 0 {
 		// Recover deleted default template.
@@ -59,9 +67,16 @@ func (t *CreateDefaultFlavorTemplate) Run() error {
 	}
 
 	for _, ft := range templates {
-		_, err := t.TemplateStore.Create(&ft)
+		ftc := models.FlavorTemplateFilterCriteria{Label: ft.Label}
+		ftList, err = t.TemplateStore.Search(&ftc)
 		if err != nil {
-			return errors.Wrap(err, "Failed to create default flavor template with ID \""+ft.ID.String()+"\"")
+			return errors.Wrap(err, "Failed to search the default flavor template(s)")
+		}
+		if len(ftList) == 0 {
+			_, err := t.TemplateStore.Create(&ft)
+			if err != nil {
+				return errors.Wrap(err, "Failed to create default flavor template with ID \""+ft.ID.String()+"\"")
+			}
 		}
 	}
 
@@ -76,7 +91,7 @@ func (t *CreateDefaultFlavorTemplate) Validate() error {
 	var err error
 
 	if t.TemplateStore == nil {
-		err = t.flavorTemplateStore()
+		err := t.flavorTemplateStore()
 		if err != nil {
 			return errors.Wrap(err, "Failed to initialize flavor template store instance")
 		}

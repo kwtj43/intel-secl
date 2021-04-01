@@ -29,6 +29,7 @@ import (
 	commLogMsg "github.com/intel-secl/intel-secl/v3/pkg/lib/common/log/message"
 	"github.com/intel-secl/intel-secl/v3/pkg/model/kbs"
 	"github.com/pkg/errors"
+	"time"
 )
 
 const (
@@ -342,11 +343,10 @@ func (keyInfo KeyDetails) doesCertcontextListMatchKeyTransferPolicy() bool {
 	return false
 }
 
-func (keyInfo *KeyDetails) IsValidSession(stmLabel string) (validSession, validSGXAttributes bool) {
+func (keyInfo *KeyDetails) IsValidSession(stmLabel string) (validSession, validSGXAttributes, activeSession bool) {
 	defaultLog.Trace("keytransfer/skc_key_transfer:IsValidSession() entering")
 	defer defaultLog.Trace("keytransfer/skc_key_transfer:IsValidSession() leaving")
 
-	defaultLog.Trace("keyInfo.SessionIDMap: ", keyInfo.SessionIDMap)
 	var sessionID string
 	sessionFound := false
 	for _, value := range keyInfo.SessionIDMap {
@@ -356,6 +356,15 @@ func (keyInfo *KeyDetails) IsValidSession(stmLabel string) (validSession, validS
 		// are the same as in session map
 		if session && keyInfo.SessionMap[sessionID].Stmlabel == stmLabel {
 			sessionFound = true
+
+			expiryTime := keyInfo.SessionMap[sessionID].SessionExpiryTime
+
+			if expiryTime.Before(time.Now()) {
+				defaultLog.Debug("session has expired hence exiting")
+				///delete session from map
+				delete(keyInfo.SessionMap, sessionID)
+				return true, true, false
+			}
 			break
 		}
 	}
@@ -367,42 +376,59 @@ func (keyInfo *KeyDetails) IsValidSession(stmLabel string) (validSession, validS
 				attributes := keyInfo.SessionResponseMap[sessionID]
 				if keyInfo.TransferPolicyAttributes.SGXEnforceTCBUptoDate && attributes.TCBLevel == constants.TCBLevelOutOfDate {
 					defaultLog.Debug("keytransfer/skc_key_transfer:IsValidSession() Platform TCB Status is Out of Date")
-					return true, false
+					return true, false, true
 				}
 
 				if keyInfo.validateSgxEnclaveIssuer(attributes.EnclaveIssuer) &&
 					keyInfo.validateSgxEnclaveIssuerProdId(attributes.EnclaveIssuerProductID) &&
 					keyInfo.validateSgxEnclaveIssuerExtProdId(attributes.EnclaveIssuerExtendedProductID) &&
-					//keyInfo.validateSgxEnclaveMeasurement(attributes.EnclaveMeasurement) &&
+					keyInfo.validateSgxEnclaveMeasurement(attributes.EnclaveMeasurement) &&
 					keyInfo.validateSgxConfigId(attributes.ConfigID) &&
 					keyInfo.validateSgxIsvSvn(attributes.IsvSvn) &&
 					keyInfo.validateSgxConfigIdSvn(attributes.ConfigSvn) {
 					keyInfo.ActiveSessionID = sessionID
 					defaultLog.Debug("keytransfer/skc_key_transfer:IsValidSession() All sgx attributes in stm attestation report match key transfer policy")
-					return true, true
+					return true, true, true
 				} else {
+					///delete session from map
+					delete(keyInfo.SessionMap, sessionID)
 					defaultLog.Debug("keytransfer/skc_key_transfer:IsValidSession() Sgx attribute validation failed")
-					return true, false
+					return true, false, true
 				}
 
 			} else {
 				keyInfo.ActiveSessionID = sessionID
-				return true, true
+				return true, true, true
 			}
+			//}
 		}
 	}
-	return false, false
+	return false, false, false
+}
+
+func (keyInfo *KeyDetails) deleteExpiredSessions() {
+
+	defaultLog.Trace("keytransfer/skc_key_transfer:deleteExpiredSessions() entering")
+	defer defaultLog.Trace("keytransfer/skc_key_transfer:deleteExpiredSessions() leaving")
+
+	for k := range keyInfo.SessionMap {
+		if keyInfo.SessionMap[k].SessionExpiryTime.Before(time.Now()) {
+			delete(keyInfo.SessionMap, k)
+		}
+	}
 }
 
 func (keyInfo *KeyDetails) BuildChallengeJsonRequest(cfg *config.Configuration) (kbs.ChallengeRequest, error) {
 	defaultLog.Trace("keytransfer/skc_key_transfer:BuildChallengeJsonRequest() entering")
 	defer defaultLog.Trace("keytransfer/skc_key_transfer:BuildChallengeJsonRequest() leaving")
 
+	keyInfo.deleteExpiredSessions()
+
 	var challengeReq kbs.ChallengeRequest
 
 	challengeReq.ChallengeType = keyInfo.ActiveStmLabel
 
-	challenge, err := keyInfo.generateStmChallenge()
+	challenge, err := keyInfo.generateStmChallenge(cfg.Skc.SessionExpiryTime)
 	if err != nil {
 		return challengeReq, errors.Wrap(err, "Failed to generate challenge")
 	}
@@ -565,7 +591,7 @@ func (keyInfo KeyDetails) validateSgxConfigIdSvn(stmSgxConfigSvn string) bool {
 }
 
 // generateStmChallenge - Function to generate stm challenge
-func (keyInfo KeyDetails) generateStmChallenge() (string, error) {
+func (keyInfo KeyDetails) generateStmChallenge(mins int) (string, error) {
 	defaultLog.Trace("keytransfer/skc_key_transfer:generateStmChallenge() Entering")
 	defer defaultLog.Trace("keytransfer/skc_key_transfer:generateStmChallenge() Leaving")
 
@@ -579,6 +605,7 @@ func (keyInfo KeyDetails) generateStmChallenge() (string, error) {
 	keytransfer.SessionId = encSessionID
 	keytransfer.ClientCertHash = keyInfo.ClientCertSHA
 	keytransfer.Stmlabel = keyInfo.ActiveStmLabel
+	keytransfer.SessionExpiryTime = time.Now().Add(time.Minute * time.Duration(mins))
 
 	keyInfo.SessionMap[encSessionID] = keytransfer
 

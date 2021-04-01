@@ -48,4 +48,7 @@ Stylechecker:
     - k8s
   script:
     - gofmt -l .
-    - gofmt -l . | wc -l 
+    - |
+        if [ "$(gofmt -l . | wc -l)"  -gt 0 ]; then
+                    exit 1
+        fi

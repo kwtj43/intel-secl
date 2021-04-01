@@ -1,9 +1,12 @@
-FROM centos:8
+#  Copyright (C) 2021 Intel Corporation
+#  SPDX-License-Identifier: BSD-3-Clause
 
-RUN useradd -u 1001 --comment "Certificate Management Service" --home /opt/cms  --shell /bin/false cms
+FROM centos:8
 
 COPY cmd/cms/cms /usr/bin/cms
 
-COPY build/image/entrypoint-cms.sh /usr/local/bin/entrypoint.sh
+COPY build/image/entrypoint-cms.sh /entrypoint.sh
 
-ENTRYPOINT [ "/usr/local/bin/entrypoint.sh"]
+RUN touch /.container-env && chmod +x /entrypoint.sh
+
+ENTRYPOINT [ "/entrypoint.sh"]

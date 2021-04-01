@@ -34,6 +34,11 @@ func openLogFiles() (logFile *os.File, secLogFile *os.File, err error) {
 		return nil, nil, fmt.Errorf("error in setting file permission for file : %s", SecurityLogFile)
 	}
 
+	// Containers are always run as non root users, does not require changing ownership of log directories
+	if _, err := os.Stat("/.container-env"); err == nil {
+		return logFile, secLogFile, nil
+	}
+
 	ihubUser, err := user.Lookup(ServiceUserName)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not find user '%s'", ServiceUserName)
@@ -71,16 +76,7 @@ func main() {
 		}
 	} else {
 		defer func() {
-			err = logFile.Close()
-			if err != nil {
-				fmt.Println("Failed close log file:", err.Error())
-			}
-		}()
-		defer func() {
-			err = secLogFile.Close()
-			if err != nil {
-				fmt.Println("Failed close log file:", err.Error())
-			}
+			closeLogFiles(logFile, secLogFile)
 		}()
 		app = &ihub.App{
 			LogWriter:    logFile,
@@ -91,6 +87,19 @@ func main() {
 	err = app.Run(os.Args)
 	if err != nil {
 		fmt.Println("Application returned with error : ", err.Error())
+		closeLogFiles(logFile, secLogFile)
 		os.Exit(1)
+	}
+}
+
+func closeLogFiles(logFile, secLogFile *os.File) {
+	var err error
+	err = logFile.Close()
+	if err != nil {
+		fmt.Println("Failed to close default log file:", err.Error())
+	}
+	err = secLogFile.Close()
+	if err != nil {
+		fmt.Println("Failed to close security log file:", err.Error())
 	}
 }

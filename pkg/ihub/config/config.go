@@ -17,11 +17,13 @@ import (
 
 // Configuration is the global configuration struct that is marshalled/unmarshalled to a persisted yaml file
 type Configuration struct {
-	ConfigFile         string                   `yaml:"config-file" mapstructure:"config-file"`
+	AASApiUrl           string `yaml:"aas-base-url" mapstructure:"aas-base-url"`
+	CMSBaseURL          string `yaml:"cms-base-url" mapstructure:"cms-base-url"`
+	CmsTlsCertDigest    string `yaml:"cms-tls-cert-sha384" mapstructure:"cms-tls-cert-sha384"`
+	PollIntervalMinutes int    `yaml:"poll-interval-minutes" mapstructure:"poll-interval-minutes"`
+
 	Log                commConfig.LogConfig     `yaml:"log" mapstructure:"log"`
-	IHUB               IHUBConfig               `yaml:"ihub" mapstructure:"ihub"`
-	AAS                AASConfig                `yaml:"aas" mapstructure:"aas"`
-	CMS                CMSConfig                `yaml:"cms" mapstructure:"cms"`
+	IHUB               commConfig.ServiceConfig `yaml:"ihub" mapstructure:"ihub"`
 	AttestationService AttestationConfig        `yaml:"attestation-service" mapstructure:"attestation-service"`
 	Endpoint           Endpoint                 `yaml:"end-point" mapstructure:"end-point"`
 	TLS                commConfig.TLSCertConfig `yaml:"tls" mapstructure:"tls"`
@@ -30,21 +32,6 @@ type Configuration struct {
 type AttestationConfig struct {
 	AttestationURL  string `yaml:"attestation-url" mapstructure:"attestation-url"`
 	AttestationType string `yaml:"attestation-type" mapstructure:"attestation-type"`
-}
-
-type CMSConfig struct {
-	URL           string `yaml:"url" mapstructure:"url"`
-	TLSCertDigest string `yaml:"tls-cert-digest" mapstructure:"tls-cert-digest"`
-}
-
-type AASConfig struct {
-	URL string `yaml:"url" mapstructure:"url"`
-}
-
-type IHUBConfig struct {
-	Username            string `yaml:"service-username" mapstructure:"service-username"`
-	Password            string `yaml:"service-password" mapstructure:"service-password"`
-	PollIntervalMinutes int    `yaml:"poll-interval-minutes" mapstructure:"poll-interval-minutes"`
 }
 
 type Endpoint struct {

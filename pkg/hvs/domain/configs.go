@@ -6,6 +6,7 @@
 package domain
 
 import (
+	"github.com/golang/groupcache/lru"
 	"github.com/intel-secl/intel-secl/v3/pkg/hvs/domain/models"
 	"github.com/intel-secl/intel-secl/v3/pkg/lib/host-connector"
 	"github.com/intel-secl/intel-secl/v3/pkg/lib/saml"
@@ -21,6 +22,7 @@ type HostTrustVerifierConfig struct {
 	CertsStore                      models.CertificatesStore
 	SamlIssuerConfig                saml.IssuerConfiguration
 	SkipFlavorSignatureVerification bool
+	HostTrustCache                  *lru.Cache
 }
 
 type HostTrustMgrConfig struct {
@@ -38,6 +40,7 @@ type HostDataFetcherConfig struct {
 	RetryTimeMinutes      int
 	HostStatusStore       HostStatusStore
 	HostStore             HostStore
+	HostTrustCache        *lru.Cache
 }
 
 type HostControllerConfig struct {

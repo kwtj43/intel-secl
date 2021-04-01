@@ -66,7 +66,7 @@ func (r *Router) fnGetJwtCerts() error {
 	if !strings.HasSuffix(cfg.AASApiUrl, "/") {
 		cfg.AASApiUrl = cfg.AASApiUrl + "/"
 	}
-	url := cfg.AASApiUrl + "noauth/jwt-certificates"
+	url := cfg.AASApiUrl + "jwt-certificates"
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return errors.Wrap(err, "router/router:fnGetJwtCerts() Could not create http request")

@@ -64,7 +64,7 @@ func (r *Runner) AddTask(name, envPrefix string, t Task) {
 func (r *Runner) RunAll(force bool) error {
 	for _, taskName := range r.order {
 		err := r.Run(taskName, force)
-		if len(r.failedCommands) != 0 {
+		if err != nil {
 			log.WithError(err).Errorf("Failed to run task : %s", taskName)
 		}
 	}

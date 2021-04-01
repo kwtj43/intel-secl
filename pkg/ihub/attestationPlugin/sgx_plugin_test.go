@@ -12,6 +12,7 @@ import (
 
 	"github.com/intel-secl/intel-secl/v3/pkg/ihub/config"
 	testutility "github.com/intel-secl/intel-secl/v3/pkg/ihub/test"
+	commConfig "github.com/intel-secl/intel-secl/v3/pkg/lib/common/config"
 )
 
 func TestGetHostReportsSGX(t *testing.T) {
@@ -44,15 +45,13 @@ func TestGetHostReportsSGX(t *testing.T) {
 			args: args{
 				hostIP: sgxHostName,
 				config: &config.Configuration{
-					AAS: config.AASConfig{
-						URL: "http://localhost" + port + "/aas",
-					},
-					IHUB: config.IHUBConfig{
+					AASApiUrl: "http://localhost" + port + "/aas",
+					IHUB: commConfig.ServiceConfig{
 						Username: "admin@hub",
 						Password: "hubAdminPass",
 					},
 					AttestationService: config.AttestationConfig{
-						AttestationURL: "http://localhost" + port + "/sgx-hvs/v1",
+						AttestationURL: "http://localhost" + port + "/sgx-hvs/v2",
 					},
 				},
 			},
@@ -96,15 +95,13 @@ func TestGetSHVSVersion(t *testing.T) {
 			name: "Valid Test: get-shvs-version",
 			args: args{
 				config: &config.Configuration{
-					AAS: config.AASConfig{
-						URL: "http://localhost" + port + "/aas",
-					},
-					IHUB: config.IHUBConfig{
+					AASApiUrl: "http://localhost" + port + "/aas",
+					IHUB: commConfig.ServiceConfig{
 						Username: "admin@hub",
 						Password: "hubAdminPass",
 					},
 					AttestationService: config.AttestationConfig{
-						AttestationURL: "http://localhost" + port + "/sgx-hvs/v1",
+						AttestationURL: "http://localhost" + port + "/sgx-hvs/v2",
 					},
 				},
 			},
@@ -146,16 +143,14 @@ func Test_initializeSKCClient(t *testing.T) {
 			args: args{
 				certDirectory: "",
 				con: &config.Configuration{
-					AAS: config.AASConfig{
-						URL: "http://localhost" + port + "/aas",
-					},
-					IHUB: config.IHUBConfig{
+					AASApiUrl: "http://localhost" + port + "/aas",
+					IHUB: commConfig.ServiceConfig{
 						Username: "admin@hub",
 						Password: "hubAdminPass",
 					},
 					AttestationService: config.AttestationConfig{
 						AttestationType: "SGX",
-						AttestationURL:  "http://localhost" + port + "/sgx-hvs/v1",
+						AttestationURL:  "http://localhost" + port + "/sgx-hvs/v2",
 					},
 				},
 			},

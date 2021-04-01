@@ -34,9 +34,10 @@ type verifyTrustJob struct {
 }
 
 type newHostFetch struct {
-	ctx    context.Context
-	hostId uuid.UUID
-	data   *types.HostManifest
+	ctx             context.Context
+	hostId          uuid.UUID
+	data            *types.HostManifest
+	preferHashMatch bool
 }
 
 type Service struct {
@@ -117,20 +118,19 @@ func (svc *Service) startWorkers(workers int) {
 	}
 }
 
-func (svc *Service) VerifyHost(hostId uuid.UUID, fetchHostData, preferHashMatch bool) (*models.HVSReport, error) {
+func (svc *Service) VerifyHost(hostId uuid.UUID, fetchHostData bool, preferHashMatch bool) (*models.HVSReport, error) {
 	var hostData *types.HostManifest
 
 	if fetchHostData {
 		var host *hvs.Host
-		host, err := svc.hostStore.Retrieve(hostId)
+		host, err := svc.hostStore.Retrieve(hostId, nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not retrieve host id "+hostId.String())
 		}
 
-		hostData, err = svc.hdFetcher.Retrieve(context.Background(), hvs.Host{
+		hostData, err = svc.hdFetcher.Retrieve(hvs.Host{
 			Id:               host.Id,
 			ConnectionString: host.ConnectionString})
-
 	} else {
 		hostStatusCollection, err := svc.hostStatusStore.Search(&models.HostStatusFilterCriteria{
 			HostId:        hostId,
@@ -142,7 +142,8 @@ func (svc *Service) VerifyHost(hostId uuid.UUID, fetchHostData, preferHashMatch 
 
 		hostData = &hostStatusCollection[0].HostManifest
 	}
-	return svc.verifier.Verify(hostId, hostData, fetchHostData)
+	newData := fetchHostData
+	return svc.verifier.Verify(hostId, hostData, newData, preferHashMatch)
 }
 
 func (svc *Service) ProcessQueue() error {
@@ -154,7 +155,7 @@ func (svc *Service) ProcessQueue() error {
 		return errors.Wrap(err, "An error occurred while searching for records in queue")
 	}
 
-	verifyWithFetchDataHostIds := []uuid.UUID{}
+	verifyWithFetchDataHostIds := map[uuid.UUID]bool{}
 	verifyHostIds := []uuid.UUID{}
 	if len(records) > 0 {
 		svc.mapmtx.Lock()
@@ -182,7 +183,7 @@ func (svc *Service) ProcessQueue() error {
 					}
 				}
 				if fetchHostData {
-					verifyWithFetchDataHostIds = append(verifyWithFetchDataHostIds, hostId)
+					verifyWithFetchDataHostIds[hostId] = preferHashMatch
 				} else {
 					verifyHostIds = append(verifyHostIds, hostId)
 				}
@@ -226,8 +227,13 @@ func (svc *Service) VerifyHostsAsync(hostIds []uuid.UUID, fetchHostData, preferH
 
 		if found {
 			prevJobStage, _ := taskstage.FromContext(vtj.ctx)
-			if !shouldAllowDupeJob(fetchHostData, vtj.getNewHostData, prevJobStage) {
+			bothPreferHashMatch := preferHashMatch == vtj.preferHashMatch
+			if isDuplicateJob(fetchHostData, vtj.getNewHostData, bothPreferHashMatch, prevJobStage) {
 				defaultLog.Debugf("hosttrust/manager:VerifyHostsAsync() Skipping dupe FVS job hostFetch - %s - for host %s", strconv.FormatBool(fetchHostData), hid.String())
+				continue
+			}
+			// cancel current job if it prefers hash match and old one does not as old might change host trust status
+			if preferHashMatch && !vtj.preferHashMatch {
 				continue
 			}
 			if shouldCancelPrevJob(fetchHostData, vtj.getNewHostData) {
@@ -244,45 +250,47 @@ func (svc *Service) VerifyHostsAsync(hostIds []uuid.UUID, fetchHostData, preferH
 	if err := svc.persistToStore(adds, updates, fetchHostData, preferHashMatch); err != nil {
 		return errors.Wrap(err, "hosttrust/manager:VerifyHostsAsync() persistRequest - error in Persisting to Store")
 	}
+	verifyWithFetchDataHostIds := map[uuid.UUID]bool{}
+	for _, hid := range adds {
+		verifyWithFetchDataHostIds[hid] = preferHashMatch
+	}
 	// at this point, it is safe to return the async call as the records have been persisted.
 	if fetchHostData {
 		svc.wg.Add(1)
-		go svc.submitHostDataFetch(adds)
+		go svc.submitHostDataFetch(verifyWithFetchDataHostIds)
 	} else {
 		go svc.queueFlavorVerify(adds, updates)
 	}
 	return nil
 }
 
-func (svc *Service) submitHostDataFetch(hostLists ...[]uuid.UUID) {
+func (svc *Service) submitHostDataFetch(hostLists map[uuid.UUID]bool) {
 	defaultLog.Trace("hosttrust/manager:submitHostDataFetch() Entering")
 	defer defaultLog.Trace("hosttrust/manager:submitHostDataFetch() Leaving")
 
 	defer svc.wg.Done()
-	for _, hosts := range hostLists {
+	for hId, preferHashMatch := range hostLists {
 		// since current store method only support searching one record at a time, use that.
 		// TODO: update to bulk retrieve host records when store method supports it. In this case, iterate by
 		// result from the host store.
-		for _, hId := range hosts {
-			if host, err := svc.hostStore.Retrieve(hId); err != nil {
-				defaultLog.Info("hosttrust/manager:submitHostDataFetch() - error retrieving host data for id", hId)
-				continue
-			} else {
-				svc.mapmtx.Lock() //  need to update the record - so take a write lock
-				vtj, ok := svc.hosts[hId]
-				if !ok {
-					svc.mapmtx.Unlock()
-					defaultLog.Error("hosttrust/manager:submitHostDataFetch() - Unexpected error retrieving map entry for id:", hId)
-					continue
-				}
-				vtj.host = host
-
-				taskstage.StoreInContext(vtj.ctx, taskstage.GetHostDataQueued)
+		if host, err := svc.hostStore.Retrieve(hId, nil); err != nil {
+			defaultLog.Info("hosttrust/manager:submitHostDataFetch() - error retrieving host data for id", hId)
+			continue
+		} else {
+			svc.mapmtx.Lock() //  need to update the record - so take a write lock
+			vtj, ok := svc.hosts[hId]
+			if !ok {
 				svc.mapmtx.Unlock()
+				defaultLog.Error("hosttrust/manager:submitHostDataFetch() - Unexpected error retrieving map entry for id:", hId)
+				continue
+			}
+			vtj.host = host
 
-				if err := svc.hdFetcher.RetrieveAsync(vtj.ctx, *vtj.host, svc); err != nil {
-					defaultLog.Error("hosttrust/manager:submitHostDataFetch() - error calling RetrieveAsync", hId)
-				}
+			taskstage.StoreInContext(vtj.ctx, taskstage.GetHostDataQueued)
+			svc.mapmtx.Unlock()
+
+			if err := svc.hdFetcher.RetrieveAsync(vtj.ctx, *vtj.host, preferHashMatch, svc); err != nil {
+				defaultLog.Error("hosttrust/manager:submitHostDataFetch() - error calling RetrieveAsync", hId)
 			}
 		}
 	}
@@ -406,6 +414,7 @@ func (svc *Service) doWork() {
 		var hostId uuid.UUID
 		var hostData *types.HostManifest
 		newData := false
+		preferHashMatch := false
 
 		select {
 
@@ -437,15 +446,17 @@ func (svc *Service) doWork() {
 			} else {
 				hostId = hData.hostId
 				hostData = hData.data
+				preferHashMatch = hData.preferHashMatch
 				newData = true
 			}
+
 		}
-		svc.verifyHostData(hostId, hostData, newData)
+		svc.verifyHostData(hostId, hostData, newData, preferHashMatch)
 	}
 }
 
 // This function kicks of the verification process given a manifest
-func (svc *Service) verifyHostData(hostId uuid.UUID, data *types.HostManifest, newData bool) {
+func (svc *Service) verifyHostData(hostId uuid.UUID, data *types.HostManifest, newData bool, preferHashMatch bool) {
 	defaultLog.Trace("hosttrust/manager:verifyHostData() Entering")
 	defer defaultLog.Trace("hosttrust/manager:verifyHostData() Leaving")
 
@@ -469,7 +480,7 @@ func (svc *Service) verifyHostData(hostId uuid.UUID, data *types.HostManifest, n
 	}
 	svc.mapmtx.Unlock()
 
-	_, err := svc.verifier.Verify(hostId, data, newData)
+	_, err := svc.verifier.Verify(hostId, data, newData, preferHashMatch)
 	if err != nil {
 		defaultLog.WithError(err).Errorf("hosttrust/manager:verifyHostData() Error while verification")
 	}
@@ -479,7 +490,7 @@ func (svc *Service) verifyHostData(hostId uuid.UUID, data *types.HostManifest, n
 
 // This function is the implementation of the HostDataReceiver interface method. Just create a new request
 // to process the newly obtained data and it will be submitted to the verification queue
-func (svc *Service) ProcessHostData(ctx context.Context, host hvs.Host, data *types.HostManifest, err error) error {
+func (svc *Service) ProcessHostData(ctx context.Context, host hvs.Host, data *types.HostManifest, preferHashMatch bool, err error) error {
 	defaultLog.Trace("hosttrust/manager:ProcessHostData() Entering")
 	defer defaultLog.Trace("hosttrust/manager:ProcessHostData() Leaving")
 
@@ -496,25 +507,26 @@ func (svc *Service) ProcessHostData(ctx context.Context, host hvs.Host, data *ty
 	// queue the new data to be processed by one of the worker threads by adding this to the queue
 	taskstage.StoreInContext(ctx, taskstage.FlavorVerifyQueued)
 	svc.hfRqstChan <- newHostFetch{
-		ctx:    ctx,
-		hostId: host.Id,
-		data:   data,
+		ctx:             ctx,
+		hostId:          host.Id,
+		data:            data,
+		preferHashMatch: preferHashMatch,
 	}
 	return nil
 }
 
-// shouldAllowDupeJob determines if the new incoming job is a dupe of currently running job
-func shouldAllowDupeJob(newJobNeedFreshHostData, prevJobNeededFreshData bool, prevJobStage taskstage.Stage) bool {
-	defaultLog.Trace("hosttrust/manager:shouldAllowDupeJob() Entering")
-	defer defaultLog.Trace("hosttrust/manager:shouldAllowDupeJob() Leaving")
+// isDuplicateJob determines if the new incoming job is a dupe of currently running job
+func isDuplicateJob(newJobNeedFreshHostData, prevJobNeededFreshData, bothPreferHashMatch bool, prevJobStage taskstage.Stage) bool {
+	defaultLog.Trace("hosttrust/manager:isDuplicateJob() Entering")
+	defer defaultLog.Trace("hosttrust/manager:isDuplicateJob() Leaving")
 
-	if (prevJobStage < taskstage.FlavorVerifyStarted &&
+	if (prevJobStage < taskstage.FlavorVerifyStarted && bothPreferHashMatch &&
 		prevJobNeededFreshData == newJobNeedFreshHostData == false) ||
-		(prevJobStage < taskstage.GetHostDataStarted &&
+		(prevJobStage < taskstage.GetHostDataStarted && bothPreferHashMatch &&
 			prevJobNeededFreshData == newJobNeedFreshHostData == true) {
-		return false
+		return true
 	}
-	return true
+	return false
 }
 
 // shouldCancelPrevJob determines if the previous job can be cancelled out

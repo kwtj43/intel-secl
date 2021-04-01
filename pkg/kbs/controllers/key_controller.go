@@ -348,27 +348,28 @@ func validateKeyCreateRequest(requestKey kbs.KeyRequest) error {
 		return errors.New("key algorithm is not supported")
 	}
 
-	keyString := requestKey.KeyInformation.KeyString
-	if keyString == "" && requestKey.KeyInformation.KmipKeyID == "" {
-		if strings.ToUpper(algorithm) == consts.CRYPTOALG_EC {
-			if requestKey.KeyInformation.CurveType == "" {
-				return errors.New("either curve_type or key_string or kmip_key_id must be specified")
-			} else if !allowedCurveTypes[requestKey.KeyInformation.CurveType] {
-				return errors.New("curve_type is not supported")
-			}
-		} else {
-			if requestKey.KeyInformation.KeyLength == 0 {
-				return errors.New("either key_length or key_string or kmip_key_id must be specified")
-			} else if !allowedKeyLengths[requestKey.KeyInformation.KeyLength] {
-				return errors.New("key_length is not supported")
-			}
+	if strings.ToUpper(algorithm) == consts.CRYPTOALG_EC {
+		if requestKey.KeyInformation.CurveType == "" {
+			return errors.New("curve_type must be provided")
+		} else if !allowedCurveTypes[requestKey.KeyInformation.CurveType] {
+			return errors.New("curve_type is not supported")
 		}
-	} else if keyString != "" {
+	} else {
+		if requestKey.KeyInformation.KeyLength == 0 {
+			return errors.New("Key length is missing")
+		} else if !allowedKeyLengths[requestKey.KeyInformation.KeyLength] {
+			return errors.New("key_length is not supported")
+		}
+	}
+
+	keyString := requestKey.KeyInformation.KeyString
+	kmipKeyID := requestKey.KeyInformation.KmipKeyID
+	if keyString != "" {
 		if err := validation.ValidatePemEncodedKey(keyString); err != nil {
 			return errors.New("key_string must be PEM formatted")
 		}
-	} else {
-		if err := validation.ValidateStrings([]string{requestKey.KeyInformation.KmipKeyID}); err != nil {
+	} else if kmipKeyID != "" {
+		if err := validation.ValidateStrings([]string{kmipKeyID}); err != nil {
 			return errors.New("kmip_key_id must be a valid string")
 		}
 	}

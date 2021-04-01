@@ -105,7 +105,6 @@ func TestSaveConfiguration(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			conf := Configuration{}
-			conf.ConfigFile = tt.configFile
 
 			err := conf.SaveConfiguration(tt.configFile)
 

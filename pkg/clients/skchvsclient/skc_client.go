@@ -53,7 +53,7 @@ func (c Client) GetSHVSVersion(url string) ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "skchvsclient/skc_client:GetSHVSVersion() Error forming request")
 	}
-	response, err := util.SendRequest(req, c.AASURL.String(), c.UserName, c.Password, c.CertArray)
+	response, err := util.SendNoAuthRequest(req, c.CertArray)
 	if err != nil {
 		return nil, errors.Wrap(err, "skchvsclient/skc_client:GetSHVSVersion() Error reading response body while fetching the version")
 	}

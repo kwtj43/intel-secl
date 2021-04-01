@@ -7,13 +7,12 @@ package cms
 import (
 	"fmt"
 	"github.com/intel-secl/intel-secl/v3/pkg/cms/config"
-	"os/user"
-	"strconv"
+	commConfig "github.com/intel-secl/intel-secl/v3/pkg/lib/common/config"
+	"os"
 	"strings"
 
 	"github.com/intel-secl/intel-secl/v3/pkg/cms/constants"
 	"github.com/intel-secl/intel-secl/v3/pkg/cms/tasks"
-	commConfig "github.com/intel-secl/intel-secl/v3/pkg/lib/common/config"
 	cos "github.com/intel-secl/intel-secl/v3/pkg/lib/common/os"
 	"github.com/intel-secl/intel-secl/v3/pkg/lib/common/setup"
 	"github.com/pkg/errors"
@@ -29,10 +28,10 @@ func (a *App) setup(args []string) error {
 	var ansFile string
 	var force bool
 	for i, s := range args {
+
 		if s == "-f" || s == "--file" {
 			if i+1 < len(args) {
 				ansFile = args[i+1]
-				break
 			} else {
 				return errors.New("Invalid answer file name")
 			}
@@ -96,7 +95,12 @@ func (a *App) setup(args []string) error {
 	if err != nil {
 		return errors.Wrap(err, "Error saving config")
 	}
-	return a.configDirChown()
+	// Containers are always run as non root users, does not require changing ownership of config directories
+	if _, err := os.Stat("/.container-env"); err == nil {
+		return nil
+	}
+
+	return cos.ChownDirForUser(constants.ServiceUserName, a.configDir())
 }
 
 // a helper function for setting up the task runner
@@ -109,25 +113,14 @@ func (a *App) setupTaskRunner() (*setup.Runner, error) {
 	if a.configuration() == nil {
 		a.Config = defaultConfig()
 	}
-
+	if err := a.configureLogs(false, true); err != nil {
+		return nil, err
+	}
 	runner := setup.NewRunner()
 	runner.ConsoleWriter = a.consoleWriter()
 	runner.ErrorWriter = a.errorWriter()
 
-	runner.AddTask("server", "", &setup.ServerSetup{
-		SvrConfigPtr: &a.Config.Server,
-		ServerConfig: commConfig.ServerConfig{
-			Port:              viper.GetInt("server-port"),
-			ReadTimeout:       viper.GetDuration("server-read-timeout"),
-			ReadHeaderTimeout: viper.GetDuration("server-read-header-timeout"),
-			WriteTimeout:      viper.GetDuration("server-write-timeout"),
-			IdleTimeout:       viper.GetDuration("server-idle-timeout"),
-			MaxHeaderBytes:    viper.GetInt("server-max-header-bytes"),
-		},
-		ConsoleWriter: a.consoleWriter(),
-		DefaultPort:   constants.DefaultPort,
-	})
-	runner.AddTask("root_ca", "", &tasks.RootCa{
+	runner.AddTask("root-ca", "", &tasks.RootCa{
 		ConsoleWriter:   a.consoleWriter(),
 		CACertConfigPtr: &a.Config.CACert,
 		CACertConfig: config.CACertConfig{
@@ -138,7 +131,7 @@ func (a *App) setupTaskRunner() (*setup.Runner, error) {
 			Country:      viper.GetString("cms-ca-country"),
 		},
 	})
-	runner.AddTask("intermediate_ca", "", &tasks.IntermediateCa{
+	runner.AddTask("intermediate-ca", "", &tasks.IntermediateCa{
 		ConsoleWriter: a.consoleWriter(),
 		Config:        &a.Config.CACert,
 	})
@@ -147,33 +140,27 @@ func (a *App) setupTaskRunner() (*setup.Runner, error) {
 		TLSCertDigestPtr: &a.Config.TlsCertDigest,
 		TLSSanList:       a.Config.TlsSanList,
 	})
-	runner.AddTask("cms_auth_token", "", &tasks.CmsAuthToken{
+	runner.AddTask("cms-auth-token", "", &tasks.CmsAuthToken{
 		ConsoleWriter: a.consoleWriter(),
 		AasTlsCn:      a.Config.AasTlsCn,
 		AasJwtCn:      a.Config.AasJwtCn,
 		AasTlsSan:     a.Config.AasTlsSan,
 		TokenDuration: a.Config.TokenDurationMins,
 	})
+	runner.AddTask("update-service-config", "", &tasks.UpdateServiceConfig{
+		ConsoleWriter: a.consoleWriter(),
+		ServerConfig: commConfig.ServerConfig{
+			Port:              viper.GetInt("server-port"),
+			ReadTimeout:       viper.GetDuration("server-read-timeout"),
+			ReadHeaderTimeout: viper.GetDuration("server-read-header-timeout"),
+			WriteTimeout:      viper.GetDuration("server-write-timeout"),
+			IdleTimeout:       viper.GetDuration("server-idle-timeout"),
+			MaxHeaderBytes:    viper.GetInt("server-max-header-bytes"),
+		},
+		DefaultPort: constants.DefaultPort,
+		AASApiUrl:   viper.GetString("aas-base-url"),
+		AppConfig:   &a.Config,
+	})
 
 	return runner, nil
-}
-
-func (a *App) configDirChown() error {
-	svcUser, err := user.Lookup(constants.ServiceUserName)
-	if err != nil {
-		return errors.Wrapf(err, "configDirChown: could not find user '%s'", constants.ServiceUserName)
-	}
-	uid, err := strconv.Atoi(svcUser.Uid)
-	if err != nil {
-		return errors.Wrapf(err, "configDirChown: could not parse cms user uid '%s'", svcUser.Uid)
-	}
-	gid, err := strconv.Atoi(svcUser.Gid)
-	if err != nil {
-		return errors.Wrapf(err, "configDirChown: could not parse cms user gid '%s'", svcUser.Gid)
-	}
-	err = cos.ChownR(a.configDir(), uid, gid)
-	if err != nil {
-		return errors.Wrap(err, "Error while changing ownership of files inside config directory")
-	}
-	return nil
 }

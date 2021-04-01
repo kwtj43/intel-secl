@@ -57,6 +57,9 @@ func NewVMwareClient(vcenterApiUrl *url.URL, vcenterUserName, vcenterPassword, h
 		if err != nil {
 			return nil, errors.Wrap(err, "vmware/client:NewVMwareClient() Error creating Vmware client")
 		}
+		if host.Config == nil {
+			return nil, errors.New("vmware/client:NewVMwareClient() Unable to connect to Vmware host : " + hostName)
+		}
 
 		vmwareClient.hostReference = host
 		vmwareClient.vCenterClient = vCenterClient

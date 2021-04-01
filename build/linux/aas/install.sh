@@ -38,7 +38,6 @@ id -u $SERVICE_USERNAME 2> /dev/null || useradd -M --system --shell /sbin/nologi
 
 echo "Installing Auth Service..."
 
-
 COMPONENT_NAME=authservice
 PRODUCT_HOME=/opt/$COMPONENT_NAME
 BIN_PATH=$PRODUCT_HOME/bin
@@ -53,7 +52,7 @@ for directory in $BIN_PATH $DB_SCRIPT_PATH $LOG_PATH $CONFIG_PATH $CERTS_PATH $C
   # mkdir -p will return 0 if directory exists or is a symlink to an existing directory or directory and parents can be created
   mkdir -p $directory
   if [ $? -ne 0 ]; then
-    echo_failure "Cannot create directory: $directory"
+    echo "Cannot create directory: $directory"
     exit 1
   fi
   chown -R $SERVICE_USERNAME:$SERVICE_USERNAME $directory
@@ -109,11 +108,11 @@ logRotate_install() {
   LOGROTATE_PACKAGES="logrotate"
   if [ "$(whoami)" == "root" ]; then
     auto_install "Log Rotate" "LOGROTATE"
-    if [ $? -ne 0 ]; then echo_failure "Failed to install logrotate"; exit -1; fi
+    if [ $? -ne 0 ]; then echo "Failed to install logrotate"; exit -1; fi
   fi
   logRotate_clear; logRotate_detect;
     if [ -z "$logrotate" ]; then
-      echo_failure "logrotate is not installed"
+      echo "logrotate is not installed"
     else
       echo  "logrotate installed in $logrotate"
     fi
@@ -151,7 +150,7 @@ if [ "${AAS_NOSETUP,,}" == "true" ]; then
     echo "Run \"authservice setup all\" for manual setup"
     echo "Installation completed successfully!"
 else 
-    $COMPONENT_NAME setup all
+    $COMPONENT_NAME setup all --force
     SETUPRESULT=$?
     chown -R aas:aas /etc/authservice/
     if [ ${SETUPRESULT} == 0 ]; then 

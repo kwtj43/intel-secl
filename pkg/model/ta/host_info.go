@@ -35,6 +35,7 @@ type UEFI struct {
 type HostInfo struct {
 	OSName              string           `json:"os_name"`
 	OSVersion           string           `json:"os_version"`
+	OSType              string           `json:"os_type"`
 	BiosVersion         string           `json:"bios_version"`
 	VMMName             string           `json:"vmm_name"`
 	VMMVersion          string           `json:"vmm_version"`
@@ -58,3 +59,11 @@ type HardwareFeatures struct {
 	PFR  HardwareFeature `json:"PFR"`
 	BMC  HardwareFeature `json:"BMC"`
 }
+
+type OSType string
+
+const (
+	OsTypeLinux   = "linux"
+	OsTypeVMWare  = "vmware"
+	OsTypeWindows = "windows"
+)

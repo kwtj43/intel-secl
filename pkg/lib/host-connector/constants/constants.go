@@ -6,8 +6,10 @@ package constants
 
 import (
 	"encoding/json"
-	"github.com/pkg/errors"
 	"strings"
+
+	taModel "github.com/intel-secl/intel-secl/v3/pkg/model/ta"
+	"github.com/pkg/errors"
 )
 
 type Vendor int
@@ -23,20 +25,20 @@ func (vendor Vendor) String() string {
 	return [...]string{"UNKNOWN", "INTEL", "VMWARE", "MICROSOFT"}[vendor]
 }
 
-func (vendor *Vendor) GetVendorFromOSName(osName string) error {
+func (vendor *Vendor) GetVendorFromOSType(osType string) error {
 
 	var err error
 
-	switch strings.ToUpper(osName) {
-	case "WINDOWS", "MICROSOFT WINDOWS SERVER 2016 DATACENTER", "MICROSOFT WINDOWS SERVER 2016 STANDARD", "MICROSOFT":
+	switch strings.ToLower(osType) {
+	case taModel.OsTypeWindows:
 		*vendor = VendorMicrosoft
-	case "VMWARE", "VMWARE ESXI":
+	case taModel.OsTypeVMWare:
 		*vendor = VendorVMware
-	case "INTEL", "REDHATENTERPRISE", "REDHATENTERPRISESERVER":
+	case taModel.OsTypeLinux:
 		*vendor = VendorIntel
 	default:
 		*vendor = VendorUnknown
-		err = errors.Errorf("Could not determine vendor name from OS name '%s'", osName)
+		err = errors.Errorf("Could not determine vendor name from OS name '%s'", osType)
 	}
 
 	return err

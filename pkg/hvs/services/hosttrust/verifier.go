@@ -12,7 +12,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/intel-secl/intel-secl/v3/pkg/hvs/domain"
 	"github.com/intel-secl/intel-secl/v3/pkg/hvs/domain/models"
-	"github.com/intel-secl/intel-secl/v3/pkg/hvs/utils"
 	"github.com/intel-secl/intel-secl/v3/pkg/lib/flavor/common"
 	"github.com/intel-secl/intel-secl/v3/pkg/lib/host-connector/types"
 	"github.com/intel-secl/intel-secl/v3/pkg/lib/saml"
@@ -59,22 +58,26 @@ func getTrustPcrListReport(hostInfo taModel.HostInfo, report *hvs.TrustReport) [
 	defaultLog.Trace("hosttrust/verifier:getTrustPcrListReport() Entering")
 	defer defaultLog.Trace("hosttrust/verifier:getTrustPcrListReport() Leaving")
 
-	trustPcrMap := make(map[int]struct{})
-	var trustPcrList []int
+	// TODO: Fix PCR Caching
+	return []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24}
 
-	for _, result := range report.Results {
-		if result.Rule.ExpectedPcr != nil {
-			pcrIndex := int(result.Rule.ExpectedPcr.Pcr.Index)
-			if _, ok := trustPcrMap[pcrIndex]; !ok {
-				trustPcrMap[pcrIndex] = struct{}{}
-				trustPcrList = append(trustPcrList, pcrIndex)
-			}
-		}
-	}
-	if len(trustPcrList) > 0 && utils.IsLinuxHost(&hostInfo) {
-		trustPcrList = append(trustPcrList, int(types.PCR15))
-	}
-	return trustPcrList
+	// trustPcrMap := make(map[int]struct{})
+	// var trustPcrList []int
+
+	// for _, result := range report.Results {
+
+	// 	if result.Rule.Name == constants.RulePcrMatchesConstant {
+	// 		pcrIndex := int(result.Rule.ExpectedPcr.Pcr.Index)
+	// 		if _, ok := trustPcrMap[pcrIndex]; !ok {
+	// 			trustPcrMap[pcrIndex] = struct{}{}
+	// 			trustPcrList = append(trustPcrList, pcrIndex)
+	// 		}
+	// 	}
+	// }
+	// if len(trustPcrList) > 0 && utils.IsLinuxHost(&hostInfo) {
+	// 	trustPcrList = append(trustPcrList, int(types.PCR15))
+	// }
+	// return trustPcrList
 }
 
 func (v *Verifier) Verify(hostId uuid.UUID, hostData *types.HostManifest, newData bool, preferHashMatch bool) (*models.HVSReport, error) {
@@ -107,6 +110,7 @@ func (v *Verifier) Verify(hostId uuid.UUID, hostData *types.HostManifest, newDat
 			}
 		}
 	}
+
 	// TODO : remove this when we remove the intermediate collection
 	flvGroupIds, err := v.HostStore.SearchFlavorgroups(hostId)
 	flvGroups, err := v.FlavorGroupStore.Search(&models.FlavorGroupFilterCriteria{Ids: flvGroupIds})

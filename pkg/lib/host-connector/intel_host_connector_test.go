@@ -90,7 +90,7 @@ func TestCreateHostManifestFromSampleData(t *testing.T) {
 	hostManifest, err := intelConnector.GetHostManifestAcceptNonce(nonce, nil)
 	assert.NoError(t, err)
 
-	json, err := json.Marshal(hostManifest)
+	json, err := json.MarshalIndent(hostManifest, "", "  ")
 	assert.NoError(t, err)
 	t.Log(string(json))
 }

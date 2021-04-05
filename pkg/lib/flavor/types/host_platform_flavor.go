@@ -399,8 +399,10 @@ func UpdateMetaSectionDetails(flavorPart cf.FlavorPart, newMeta *cm.Meta, flavor
 
 //getVendorName This method is used to get the vendor name
 func (pf HostPlatformFlavor) getVendorName() hcConstants.Vendor {
+
+	// KWT: This needs to be cleaned up...
 	var vendorName hcConstants.Vendor
-	if strings.ToUpper(pf.HostManifest.HostInfo.OSName) == constants.OsLinux {
+	if strings.ToLower(pf.HostManifest.HostInfo.OSType) == taModel.OsTypeLinux {
 		vendorName = hcConstants.VendorIntel
 	} else {
 		vendorName = hcConstants.VendorVMware

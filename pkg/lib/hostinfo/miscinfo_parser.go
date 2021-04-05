@@ -19,5 +19,9 @@ func (miscInfoParser *miscInfoParser) Init() error {
 
 func (miscInfoParser *miscInfoParser) Parse(hostInfo *model.HostInfo) error {
 	hostInfo.NumberOfSockets = runtime.NumCPU()
+
+	// Currently, hostinfo is not used on vmware and windows is not supported
+	// (i.e., Linux only).
+	hostInfo.OSType = hostInfo.OSTypeLinux
 	return nil
 }

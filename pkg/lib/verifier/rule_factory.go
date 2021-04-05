@@ -156,7 +156,7 @@ func (factory *ruleFactory) getRuleBuilder() (ruleBuilder, error) {
 	if vendor == constants.VendorUnknown {
 		// if for some reason the vendor wasn't provided in the flavor,
 		// get the osname from the manifest
-		err = (&vendor).GetVendorFromOSName(factory.hostManifest.HostInfo.OSName)
+		err = (&vendor).GetVendorFromOSType(factory.hostManifest.HostInfo.OSType)
 		if err != nil {
 			return nil, errors.Wrap(err, "The verifier could not determine the vendor")
 		}

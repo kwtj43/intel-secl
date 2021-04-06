@@ -22,6 +22,6 @@ func (miscInfoParser *miscInfoParser) Parse(hostInfo *model.HostInfo) error {
 
 	// Currently, hostinfo is not used on vmware and windows is not supported
 	// (i.e., Linux only).
-	hostInfo.OSType = hostInfo.OSTypeLinux
+	hostInfo.OSType = model.OsTypeLinux
 	return nil
 }

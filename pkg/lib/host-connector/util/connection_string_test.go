@@ -6,9 +6,10 @@
 package util
 
 import (
+	"testing"
+
 	"github.com/intel-secl/intel-secl/v3/pkg/lib/host-connector/constants"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestGetConnectorDetails(t *testing.T) {
@@ -52,4 +53,10 @@ func TestParseConnectionString(t *testing.T) {
 	assert.Equal(t, userName, "admin.local")
 	assert.Equal(t, password, "password")
 	assert.Equal(t, hostName, "hostName")
+}
+
+func TestNatsConnectionString(t *testing.T) {
+	connectorDetails, err := GetConnectorDetails("intel:nats://10.10.10.10:10555")
+	t.Logf("%+v", connectorDetails)
+	assert.Error(t, err)
 }

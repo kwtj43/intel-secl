@@ -12,11 +12,12 @@ import (
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"errors"
-	hc "github.com/intel-secl/intel-secl/v3/pkg/lib/host-connector"
-	"github.com/stretchr/testify/assert"
 	"math/big"
 	"testing"
 	"time"
+
+	hc "github.com/intel-secl/intel-secl/v3/pkg/lib/host-connector"
+	"github.com/stretchr/testify/assert"
 )
 
 // unit test suit to test out the CreateAssetTag() function
@@ -155,7 +156,7 @@ func TestAtag_CreateAssetTag(t *testing.T) {
 func TestAtag_DeployAssetTag(t *testing.T) {
 	newTag := NewAssetTag()
 	var trustedCAcerts []x509.Certificate
-	htcFactory := hc.NewHostConnectorFactory("", trustedCAcerts)
+	htcFactory := hc.NewHostConnectorFactory("", trustedCAcerts, nil)
 	connector, err := htcFactory.NewHostConnector("https://ta.ip.com:1443;u=serviceUsername;p=servicePassword")
 	assert.NoError(t, err)
 	dtErr := newTag.DeployAssetTag(connector, "0966d97d182ee8fac40bee16018e762ae46a026f0bb437600e029a755f8745a9a6bb8b3da152ea37ef52f0d855b6622f\n", "803f6068-06da-e811-906e-00163566263e")

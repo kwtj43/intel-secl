@@ -10,13 +10,14 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"fmt"
-	"github.com/golang/groupcache/lru"
-	"github.com/intel-secl/intel-secl/v3/pkg/hvs/services/vcss"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/golang/groupcache/lru"
+	"github.com/intel-secl/intel-secl/v3/pkg/hvs/services/vcss"
 
 	"github.com/pkg/errors"
 
@@ -170,7 +171,7 @@ func initHostControllerConfig(cfg *config.Configuration, certStore *models.Certi
 	defer defaultLog.Trace("server:initHostControllerConfig() Leaving")
 
 	rootCAs := (*certStore)[models.CaCertTypesRootCa.String()]
-	hcProvider := hostconnector.NewHostConnectorFactory(cfg.AASApiUrl, rootCAs.Certificates)
+	hcProvider := hostconnector.NewHostConnectorFactory(cfg.AASApiUrl, rootCAs.Certificates, cfg.NATS.Servers)
 
 	hcc := domain.HostControllerConfig{
 		HostConnectorProvider: hcProvider,
@@ -248,7 +249,7 @@ func initHostTrustManager(cfg *config.Configuration, dataStore *postgres.DataSto
 	}
 
 	// Initialize Host Fetcher service
-	htcFactory := hostconnector.NewHostConnectorFactory(cfg.AASApiUrl, rootCAs.Certificates)
+	htcFactory := hostconnector.NewHostConnectorFactory(cfg.AASApiUrl, rootCAs.Certificates, cfg.NATS.Servers)
 
 	c := domain.HostDataFetcherConfig{
 		HostConnectorProvider: htcFactory,

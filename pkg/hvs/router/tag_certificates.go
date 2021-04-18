@@ -6,6 +6,7 @@ package router
 
 import (
 	"fmt"
+
 	"github.com/gorilla/mux"
 	"github.com/intel-secl/intel-secl/v3/pkg/hvs/config"
 	"github.com/intel-secl/intel-secl/v3/pkg/hvs/constants"
@@ -31,7 +32,7 @@ func SetTagCertificateRoutes(router *mux.Router, cfg *config.Configuration, flav
 	// set up the HostConnectorProvider for the Controller
 	rootCAs := (*certStore)[models.CaCertTypesRootCa.String()].Certificates
 	var hcp hostConnector.HostConnectorProvider
-	hcp = hostConnector.NewHostConnectorFactory(cfg.AASApiUrl, rootCAs)
+	hcp = hostConnector.NewHostConnectorFactory(cfg.AASApiUrl, rootCAs, cfg.NATS.Servers)
 
 	if hcp == nil {
 		defaultLog.Errorf("router/tag_certificates:SetTagCertificateRoutes() %s : Error initializing the Host Connector Factory", commLogMsg.AppRuntimeErr)

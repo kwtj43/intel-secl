@@ -39,7 +39,7 @@ var (
 	portReg             = regexp.MustCompile("(?:([0-9]{1,5}))")
 	textReg             = regexp.MustCompile("(?:[a-zA-Z0-9\\[\\]$@(){}_\\.\\, |:-]+)")
 	passwordReg         = regexp.MustCompile("(?:([a-zA-Z0-9_\\\\.\\\\, @!#$%^+=>?:{}()\\[\\]\\\"|;~`'*-/]+))")
-	connectionStringReg = regexp.MustCompile("^(((vmware)|(microsoft)|(intel))\\:)?https\\:\\/\\/.+[\\:\\d+]?(\\/sdk)?((;h=.+;u=.+;p=.+)|(;u=.+;p=.+))?$")
+	connectionStringReg = regexp.MustCompile("^(((vmware)|(microsoft)|(intel))\\:)?(https|nats)\\:\\/\\/.+[\\:\\d+]?(\\/sdk)?((;h=.+;u=.+;p=.+)|(;u=.+;p=.+))?$")
 	jwtReg              = regexp.MustCompile("^[A-Za-z0-9-_=]+\\.[A-Za-z0-9-_=]+\\.?[A-Za-z0-9-_.+/=]*")
 )
 

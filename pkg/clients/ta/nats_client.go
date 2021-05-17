@@ -1,8 +1,11 @@
 package ta
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"net/url"
 	"strings"
 	"time"
@@ -14,7 +17,7 @@ import (
 )
 
 var (
-	defaultTimeout = 10 * time.Second
+	defaultTimeout = 30 * time.Second
 )
 
 func NewNatsTAClient(natsServers []string, hardwareUUID uuid.UUID) (TAClient, error) {
@@ -37,7 +40,32 @@ func NewNatsTAClient(natsServers []string, hardwareUUID uuid.UUID) (TAClient, er
 
 func (client *natsTAClient) newNatsConnection() (*nats.EncodedConn, error) {
 
+	// Get the SystemCertPool, continue with an empty pool on error
+	rootCAs, _ := x509.SystemCertPool()
+	if rootCAs == nil {
+		rootCAs = x509.NewCertPool()
+	}
+
+	// Read in the cert file
+	certs, err := ioutil.ReadFile("/tmp/nats-auth/certs/ca.pem")
+	if err != nil {
+		log.Fatalf("Failed to append %q to RootCAs: %v", "ca.pem", err)
+	}
+
+	// Append our cert to the system pool
+	if ok := rootCAs.AppendCertsFromPEM(certs); !ok {
+		log.Println("No certs appended, using system certs only")
+	}
+
+	// Trust the augmented cert pool in our client
+	tlsConfig := tls.Config{
+		InsecureSkipVerify: true,
+		RootCAs:            rootCAs,
+	}
+
 	conn, err := nats.Connect(strings.Join(client.natsServers, ","),
+		nats.Secure(&tlsConfig),
+		nats.UserCredentials("/tmp/nats-auth/isecl-hvs.creds"),
 		nats.ErrorHandler(func(nc *nats.Conn, s *nats.Subscription, err error) {
 			if s != nil {
 				log.Printf("NATS: Could not process subscription for subject %q: %v", s.Subject, err)
@@ -161,7 +189,7 @@ func (client *natsTAClient) GetBaseURL() *url.URL {
 }
 
 func (client *natsTAClient) createSubject(request string) string {
-	subject := fmt.Sprintf("trust-agent.%s.%s", request, client.hardwareUUID)
+	subject := fmt.Sprintf("trust-agent.%s.%s", client.hardwareUUID, request)
 	log.Printf("Creating subject %q", subject)
 	return subject
 }
